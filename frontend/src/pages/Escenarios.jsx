@@ -4,6 +4,13 @@ import { useAuth } from '../context/AuthContext'
 import { getEscenarios, getDisciplinasActivas } from '../services/deportesService'
 import { getAgenda } from '../services/entrenadoresService'
 
+const FOTO_ESTADIO = 'https://indeportesantioquia.gov.co/wp-content/uploads/2022/10/Estadio-y-ciudad-de-Apartado.jpeg'
+const [fotoLocal] = Object.values(import.meta.glob('../assets/estadio-apartado.{jpg,jpeg,png,webp}', {
+  eager: true,
+  import: 'default',
+  query: '?url'
+}))
+
 const ESTADOS = [
   { codigo: 'VERDE', nombre: 'Buen estado' },
   { codigo: 'AMARILLO', nombre: 'En mantenimiento' },
@@ -203,6 +210,7 @@ function solicitarDatosPortada() {
 }
 
 export default function Escenarios() {
+  const [errorFotoEstadio, setErrorFotoEstadio] = useState(false)
   const { usuario } = useAuth()
   const [escenarios, setEscenarios] = useState([])
   const [disciplinas, setDisciplinas] = useState([])
@@ -474,17 +482,25 @@ export default function Escenarios() {
       <section aria-labelledby="home-community-title" className="home-community-section">
         <div className="home-community-inner">
           <figure className="home-community-visual">
-            <div
-              aria-label="Fotografía reciente de actividad comunitaria de Apartadó pendiente de actualización"
-              className="home-community-photo-pending"
-              role="img"
-            >
-              <Icono className="home-community-photo-icon" nombre="fotografia" />
-              <strong>Fotografía reciente y verificable del Coliseo de Apartadó pendiente de actualización</strong>
-              <span>Se publicará cuando se verifiquen su procedencia y fecha.</span>
-            </div>
+            {errorFotoEstadio ? (
+              <div className="home-community-photo-pending">
+                <Icono className="home-community-photo-icon" nombre="fotografia" />
+                <strong>La fotografía no pudo cargarse.</strong>
+              </div>
+            ) : (
+              <img
+                alt="Vista aérea del estadio de Apartadó, con la cancha, la pista y la ciudad al fondo"
+                className="block h-auto w-full"
+                decoding="async"
+                height={660}
+                loading="lazy"
+                onError={() => setErrorFotoEstadio(true)}
+                src={fotoLocal || FOTO_ESTADIO}
+                width={1280}
+              />
+            )}
             <figcaption>
-              No se dispone de una imagen reciente y verificable para esta sección.
+              Estadio y ciudad de Apartadó · <a href={FOTO_ESTADIO} target="_blank" rel="noreferrer">Indeportes Antioquia</a>
             </figcaption>
           </figure>
 
