@@ -1,20 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import { listarSolicitudesVinculacion, resolverSolicitudVinculacion } from '../services/entrenadoresService';
 
 const SolicitudesEntrenadores = () => {
     const [solicitudes, setSolicitudes] = useState([]);
     const [cargando, setCargando] = useState(true);
-    const [mensaje, setMensaje] = useState({ tipo: 'error', texto: 'Token inválido o expirado.' });
+    const [mensaje, setMensaje] = useState('');
+    const [resolviendo, setResolviendo] = useState(false);
+    const [errorCarga, setErrorCarga] = useState(false);
 
     const cargarSolicitudes = async () => {
         try {
             setCargando(true);
-            const respuesta = await api.get('/admin/solicitudes-entrenadores');
+            setMensaje('');
+            setErrorCarga(false);
+            const respuesta = await listarSolicitudesVinculacion();
             setSolicitudes(respuesta.data.data || []);
         } catch (error) {
-            setMensaje({ tipo: 'error', texto: 'Token inválido o expirado.' });
+            setErrorCarga(true);
+            setMensaje(error.response?.data?.message || 'No se pudieron cargar las solicitudes.');
         } finally {
             setCargando(false);
+        }
+    };
+
+    const resolver = async (id, estado) => {
+        setResolviendo(true);
+        setMensaje('');
+        try {
+            await resolverSolicitudVinculacion(id, estado);
+            setSolicitudes(actuales => actuales.filter(sol => sol.id_solicitud_vinculacion !== id));
+        } catch (error) {
+            setMensaje(error.response?.data?.message || 'No se pudo resolver la solicitud.');
+        } finally {
+            setResolviendo(false);
         }
     };
 
@@ -41,6 +59,7 @@ const SolicitudesEntrenadores = () => {
                     </div>
                     <button 
                         onClick={cargarSolicitudes}
+                        disabled={cargando || resolviendo}
                         className="sivec-button sivec-button-secondary"
                     >
                         Actualizar
@@ -48,14 +67,14 @@ const SolicitudesEntrenadores = () => {
                 </div>
 
                 {/* Alertas con contraste legible */}
-                {mensaje.texto && (
-                    <div className={`sivec-alert sivec-alert-${mensaje.tipo} mb-6`} role="status">
-                        {mensaje.texto}
+                {mensaje && (
+                    <div className="sivec-alert sivec-alert-error mb-6" role="status">
+                        {mensaje}
                     </div>
                 )}
 
                 {/* Tarjeta y Tabla */}
-                <div className="sivec-card p-0 overflow-hidden">
+                {!errorCarga && <div className="sivec-card p-0 overflow-hidden">
                     {cargando ? (
                         <p className="p-6 text-center" style={{ color: 'var(--color-text-secondary)' }}>
                             Cargando solicitudes...
@@ -79,7 +98,7 @@ const SolicitudesEntrenadores = () => {
                                 </thead>
                                 <tbody>
                                     {solicitudes.map((sol) => (
-                                        <tr key={sol.id_solicitud}>
+                                        <tr key={sol.id_solicitud_vinculacion}>
                                             <td className="font-semibold">{sol.nombre_completo}</td>
                                             <td>{sol.correo_electronico}</td>
                                             <td>{sol.disciplina}</td>
@@ -90,8 +109,15 @@ const SolicitudesEntrenadores = () => {
                                                 </span>
                                             </td>
                                             <td className="text-center">
-                                                <button className="sivec-button sivec-button-primary text-xs h-8">
+                                                <button className="sivec-button sivec-button-primary text-xs h-8"
+                                                    disabled={resolviendo || cargando}
+                                                    onClick={() => resolver(sol.id_solicitud_vinculacion, 'APROBADA')}>
                                                     Aprobar
+                                                </button>
+                                                <button className="sivec-button sivec-button-secondary text-xs h-8"
+                                                    disabled={resolviendo || cargando}
+                                                    onClick={() => resolver(sol.id_solicitud_vinculacion, 'RECHAZADA')}>
+                                                    Rechazar
                                                 </button>
                                             </td>
                                         </tr>
@@ -100,7 +126,7 @@ const SolicitudesEntrenadores = () => {
                             </table>
                         </div>
                     )}
-                </div>
+                </div>}
 
             </div>
         </div>

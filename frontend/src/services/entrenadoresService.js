@@ -3,6 +3,9 @@ import api from './api'
 export const buscarEntrenadores = (filtros) => api.get('/entrenadores', { params: filtros })
 export const buscarDeportistas = (filtros) => api.get('/entrenadores/deportistas', { params: filtros })
 export const misDeportistas = () => api.get('/entrenadores/mis-deportistas')
+export const listarSolicitudesVinculacion = () => api.get('/entrenadores/solicitudes-vinculacion')
+export const resolverSolicitudVinculacion = (id, estado) =>
+  api.post(`/entrenadores/solicitudes-vinculacion/${id}/resolver`, { estado })
 export const misSolicitudesVinculacion = () => api.get('/entrenadores/mis-solicitudes')
 export const solicitarVinculacion = (id_disciplina) =>
   api.post('/entrenadores/solicitudes-vinculacion', { id_disciplina })
