@@ -1,55 +1,70 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { consultarSeguimiento } from '../services/veeduriaService';
 
-const ConsultarReporte = () => {
+const ESTADOS = {
+    PENDIENTE: 'Pendiente de revisión',
+    VALIDADO: 'Validado por el CMJ',
+    RECHAZADO: 'Rechazado por el CMJ'
+};
+
+export default function SeguimientoVeeduria() {
     const [codigo, setCodigo] = useState('');
-    const navigate = useNavigate();
+    const [reporte, setReporte] = useState(null);
+    const [error, setError] = useState('');
+    const [cargando, setCargando] = useState(false);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (codigo.trim()) {
-            // Lógica para enviar o redirigir con el código
-            // navigate(`/seguimiento/${codigo}`);
-            console.log('Consultando código:', codigo);
+    const consultar = async event => {
+        event.preventDefault();
+        const valor = codigo.trim().toLowerCase();
+        setReporte(null);
+        if (!/^[a-f0-9]{64}$/.test(valor)) {
+            setError('Ingresa el código de seguimiento de 64 caracteres.');
+            return;
+        }
+
+        setError('');
+        setCargando(true);
+        try {
+            const { data } = await consultarSeguimiento(valor);
+            setReporte(data.data);
+        } catch (fallo) {
+            setError(fallo.response?.data?.message || 'No se pudo consultar el reporte. Intenta de nuevo.');
+        } finally {
+            setCargando(false);
         }
     };
 
     return (
-        <div className="offer-page min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            {/* Se utiliza sivec-card y max-w-2xl para centrar y dimensionar la tarjeta */}
-            <div className="sivec-card max-w-2xl w-full p-8 md:p-12 text-center">
-                
-                {/* Kicker institucional con color secundario */}
-                <span className="offer-eyebrow mb-3 block" style={{ color: 'var(--color-secondary)' }}>
-                    SIVEC / PARTICIPACIÓN CIUDADANA
-                </span>
-                
-                {/* Título y descripción con colores estandarizados */}
-                <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: 'var(--color-primary)' }}>
-                    Consultar reporte ciudadano
-                </h1>
-                <p className="mb-8 text-base md:text-lg" style={{ color: 'var(--color-text-secondary)' }}>
-                    Consulta el avance de tu reporte con el código de seguimiento que recibiste.
-                </p>
-
-                {/* Formulario alineado horizontalmente con clases estandarizadas */}
-                <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
-                    <input 
-                        type="text" 
-                        placeholder="Código de 64 caracteres" 
-                        className="sivec-input flex-1"
-                        value={codigo}
-                        onChange={(e) => setCodigo(e.target.value)}
-                        required
-                    />
-                    <button type="submit" className="sivec-button sivec-button-primary whitespace-nowrap">
-                        Consultar
-                    </button>
+        <main className="offer-page">
+            <div className="offer-container offer-container-narrow">
+                <header className="offer-page-heading">
+                    <h1>Consultar reporte ciudadano</h1>
+                    <p>Usa el código que recibiste al enviar tu reporte para conocer su estado.</p>
+                </header>
+                <form className="offer-filter-panel" onSubmit={consultar}>
+                    <label className="offer-field">
+                        Código de seguimiento
+                        <input value={codigo} onChange={event => setCodigo(event.target.value)} required
+                            autoComplete="off" spellCheck={false} disabled={cargando} />
+                    </label>
+                    <div className="offer-filter-actions">
+                        <button className="offer-button offer-button-primary" disabled={cargando}>
+                            {cargando ? 'Consultando…' : 'Consultar'}
+                        </button>
+                    </div>
+                    {error && <p role="alert" className="offer-notice error">{error}</p>}
                 </form>
-                
+                {reporte && (
+                    <section aria-labelledby="resultado-seguimiento" className="offer-filter-panel space-y-3" aria-live="polite">
+                        <h2 id="resultado-seguimiento" className="text-xl font-bold">{reporte.escenario}</h2>
+                        <p><strong>Estado del reporte:</strong> {ESTADOS[reporte.estado_reporte] || reporte.estado_reporte}</p>
+                        <p><strong>Estado propuesto:</strong> {reporte.estado_propuesto}</p>
+                        <p><strong>Fecha de recepción:</strong> {reporte.fecha_recepcion}</p>
+                        {reporte.fecha_oficializacion && <p><strong>Semáforo oficializado:</strong> {reporte.fecha_oficializacion}</p>}
+                        {reporte.observacion_cmj && <p className="whitespace-pre-wrap"><strong>Observación del CMJ:</strong> {reporte.observacion_cmj}</p>}
+                    </section>
+                )}
             </div>
-        </div>
+        </main>
     );
-};
-
-export default ConsultarReporte;
+}

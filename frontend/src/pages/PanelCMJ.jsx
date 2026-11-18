@@ -1,133 +1,146 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
+import RevisionCMJ from '../components/RevisionCMJ';
+import {
+    getHistorico,
+    getPendientes,
+    getPendientesOficializacion,
+    getSolicitudesEscenarioPendientes
+} from '../services/veeduriaService';
 
-const PanelCMJ = () => {
-    // Estados simulados basados en la imagen
-    const [error, setError] = useState("No se pudieron cargar los reportes");
-    const [pendientes, setPendientes] = useState([]);
-    const [oficializacion, setOficializacion] = useState([]);
-    const [propuestas, setPropuestas] = useState([]);
-    const [historico, setHistorico] = useState([]);
+function SeccionCMJ({ titulo, consultar, vacio, children }) {
+    const [actualizacion, setActualizacion] = useState(0);
+    const [consulta, setConsulta] = useState({ cargando: true });
+
+    useEffect(() => {
+        let activa = true;
+        consultar()
+            .then(({ data }) => {
+                if (!Array.isArray(data?.data)) throw new Error('Respuesta de lista inválida.');
+                if (activa) setConsulta({ filas: data.data });
+            })
+            .catch(error => {
+                if (activa) setConsulta({ error: error.response?.data?.message || 'No se pudo cargar esta sección.' });
+            });
+        return () => { activa = false; };
+    }, [consultar, actualizacion]);
+
+    const actualizar = () => {
+        setConsulta({ cargando: true });
+        setActualizacion(valor => valor + 1);
+    };
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto space-y-6">
-                
-                {/* --- Encabezado --- */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-extrabold text-[#173F35] mb-2">
-                        Veeduría de escenarios (CMJ)
-                    </h1>
-                    <p className="text-gray-600">
-                        La validación y la oficialización del semáforo son operaciones independientes.
-                    </p>
+        <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden" aria-busy={Boolean(consulta.cargando)}>
+            <header className="px-5 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-base font-bold text-gray-800">{titulo}</h2>
+                <button type="button" onClick={actualizar} disabled={consulta.cargando} className="offer-button offer-button-secondary" aria-label={`Actualizar: ${titulo}`}>
+                    Actualizar
+                </button>
+            </header>
+            {consulta.cargando && <p className="p-5 text-sm text-gray-600" role="status">Cargando…</p>}
+            {consulta.error && <p className="sivec-alert sivec-alert-error m-5" role="alert">{consulta.error}</p>}
+            {consulta.filas && (consulta.filas.length ? children(consulta.filas) : (
+                <p className="p-5 text-sm text-gray-600">{vacio}</p>
+            ))}
+        </section>
+    );
+}
+
+function ListaReportes({ reportes, oficializacion = false, abrir }) {
+    return (
+        <ul className="divide-y divide-gray-100">
+            {reportes.map(reporte => (
+                <li key={reporte.id_reporte} className="p-5 space-y-2 text-sm text-gray-700">
+                    <h3 className="font-semibold text-gray-900">{reporte.escenario}</h3>
+                    <p>Reporte #{reporte.id_reporte} · {reporte.fecha_reporte}</p>
+                    <p>{oficializacion && `Estado actual: ${reporte.estado_actual} · `}Estado propuesto: {reporte.estado_propuesto}</p>
+                    {reporte.descripcion && <p className="whitespace-pre-wrap wrap-break-word">{reporte.descripcion}</p>}
+                    <button type="button" className="offer-button offer-button-secondary mt-2" onClick={() => abrir(reporte)}>
+                        {oficializacion ? 'Revisar oficialización' : 'Revisar reporte'}
+                    </button>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+export default function PanelCMJ() {
+    const [revision, setRevision] = useState(null);
+    const [actualizacion, setActualizacion] = useState(0);
+    const [mensaje, setMensaje] = useState('');
+
+    const finalizar = texto => {
+        setRevision(null);
+        setMensaje(texto);
+        setActualizacion(valor => valor + 1);
+    };
+
+    return (
+        <div className="offer-page min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+                <header className="offer-page-heading">
+                    <h1>Veeduría de escenarios (CMJ)</h1>
+                    <p>La validación y la oficialización del semáforo son operaciones independientes.</p>
+                </header>
+
+                {mensaje && <p className="sivec-alert sivec-alert-success" role="status">{mensaje}</p>}
+
+                <div key={actualizacion} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                    <SeccionCMJ titulo="Reportes pendientes" consultar={getPendientes} vacio="No hay reportes pendientes.">
+                        {filas => <ListaReportes reportes={filas} abrir={item => setRevision({ tipo: 'reporte', item })} />}
+                    </SeccionCMJ>
+                    <SeccionCMJ titulo="Pendientes de oficialización" consultar={getPendientesOficializacion} vacio="No hay reportes validados pendientes de oficialización.">
+                        {filas => <ListaReportes reportes={filas} oficializacion abrir={item => setRevision({ tipo: 'oficializacion', item })} />}
+                    </SeccionCMJ>
+                    <SeccionCMJ titulo="Propuestas de escenarios" consultar={getSolicitudesEscenarioPendientes} vacio="No hay propuestas pendientes.">
+                        {filas => (
+                            <ul className="divide-y divide-gray-100">
+                                {filas.map(propuesta => (
+                                    <li key={propuesta.id_solicitud_escenario} className="p-5 space-y-2 text-sm text-gray-700">
+                                        <h3 className="font-semibold text-gray-900">{propuesta.nombre_escenario}</h3>
+                                        <p>{[propuesta.disciplina, propuesta.tipo_escenario].filter(Boolean).join(' · ')}</p>
+                                        <p>{[propuesta.comuna, propuesta.barrio, propuesta.corregimiento, propuesta.localidad_rural].filter(Boolean).join(' · ')}</p>
+                                        <p>Propuesta #{propuesta.id_solicitud_escenario} · {propuesta.fecha_solicitud}</p>
+                                        <button type="button" className="offer-button offer-button-secondary mt-2" onClick={() => setRevision({ tipo: 'propuesta', item: propuesta })}>
+                                            Revisar propuesta
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </SeccionCMJ>
                 </div>
 
-                {/* --- Alerta de Error --- */}
-                {error && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-center shadow-sm">
-                        <svg className="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <span className="text-sm font-medium text-red-800">{error}</span>
-                    </div>
-                )}
-
-                {/* --- Grilla de Colas de Trabajo --- */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    
-                    {/* Tarjeta: Reportes Pendientes */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                        <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h2 className="text-base font-bold text-gray-800">Reportes pendientes</h2>
-                            <span className="bg-gray-200 text-gray-700 py-0.5 px-2.5 rounded-full text-xs font-bold">
-                                {pendientes.length}
-                            </span>
-                        </div>
-                        <div className="p-5 flex-grow flex items-center justify-center">
-                            {pendientes.length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center italic">No hay reportes pendientes.</p>
-                            ) : (
-                                /* Aquí iría la lista de pendientes */
-                                <div>Cargando...</div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Tarjeta: Pendientes de Oficialización */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                        <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h2 className="text-base font-bold text-gray-800">Pendientes de oficialización</h2>
-                            <span className="bg-blue-100 text-blue-700 py-0.5 px-2.5 rounded-full text-xs font-bold">
-                                {oficializacion.length}
-                            </span>
-                        </div>
-                        <div className="p-5 flex-grow flex items-center justify-center">
-                            {oficializacion.length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center italic">No hay reportes validados pendientes de oficialización.</p>
-                            ) : (
-                                <div>Cargando...</div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Tarjeta: Propuestas de Escenarios */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                        <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h2 className="text-base font-bold text-gray-800">Propuestas de escenarios</h2>
-                            <span className="bg-green-100 text-green-700 py-0.5 px-2.5 rounded-full text-xs font-bold">
-                                {propuestas.length}
-                            </span>
-                        </div>
-                        <div className="p-5 flex-grow flex items-center justify-center">
-                            {propuestas.length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center italic">No hay propuestas pendientes.</p>
-                            ) : (
-                                <div>Cargando...</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* --- Tabla: Histórico de Veedurías --- */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mt-8">
-                    <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                        <h2 className="text-lg font-semibold text-gray-800">Histórico de veedurías</h2>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
-                                    <th className="px-6 py-4 font-medium whitespace-nowrap">Escenario</th>
-                                    <th className="px-6 py-4 font-medium whitespace-nowrap">Reportante</th>
-                                    <th className="px-6 py-4 font-medium whitespace-nowrap">Propuesto</th>
-                                    <th className="px-6 py-4 font-medium whitespace-nowrap">Estado</th>
-                                    <th className="px-6 py-4 font-medium whitespace-nowrap">Validó</th>
-                                    <th className="px-6 py-4 font-medium whitespace-nowrap">Fecha</th>
-                                    <th className="px-6 py-4 font-medium">Observación</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm divide-y divide-gray-100">
-                                {historico.length === 0 ? (
+                <SeccionCMJ key={`historico-${actualizacion}`} titulo="Histórico de veedurías" consultar={getHistorico} vacio="Todavía no hay reportes en el histórico.">
+                    {filas => (
+                        <div className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2" role="region" aria-label="Tabla del histórico de veedurías" tabIndex={0}>
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
                                     <tr>
-                                        <td colSpan="7" className="px-6 py-8 text-center text-gray-500 italic bg-white">
-                                            Todavía no hay reportes en el histórico.
-                                        </td>
+                                        {['Escenario', 'Reportante', 'Estado propuesto', 'Estado', 'Validó', 'Fecha del reporte', 'Observación'].map(columna => (
+                                            <th key={columna} scope="col" className="px-5 py-3 font-medium whitespace-nowrap">{columna}</th>
+                                        ))}
                                     </tr>
-                                ) : (
-                                    historico.map((item, index) => (
-                                        <tr key={index} className="hover:bg-gray-50 transition-colors">
-                                            {/* Filas de datos cuando existan */}
+                                </thead>
+                                <tbody className="text-sm divide-y divide-gray-100">
+                                    {filas.map(reporte => (
+                                        <tr key={reporte.id_reporte} className="hover:bg-gray-50">
+                                            <td className="px-5 py-4 font-semibold">{reporte.escenario}</td>
+                                            <td className="px-5 py-4">{reporte.reportante || '—'}</td>
+                                            <td className="px-5 py-4">{reporte.estado_propuesto}</td>
+                                            <td className="px-5 py-4">{reporte.estado_reporte}</td>
+                                            <td className="px-5 py-4">{reporte.validado_por || '—'}</td>
+                                            <td className="px-5 py-4 whitespace-nowrap">{reporte.fecha_reporte}</td>
+                                            <td className="px-5 py-4">{reporte.observacion_cmj || '—'}</td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </SeccionCMJ>
+                {revision && <RevisionCMJ {...revision} cerrar={() => setRevision(null)} finalizar={finalizar} />}
             </div>
         </div>
     );
-};
-
-export default PanelCMJ;
+}

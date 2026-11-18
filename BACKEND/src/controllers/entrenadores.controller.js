@@ -314,7 +314,7 @@ const misDeportistas = async (req, res) => {
             'persona'
         ]);
         const [data] = await db.query(
-            `SELECT d.id_disciplina, d.nombre AS disciplina, p.nombre_completo AS deportista, i.fecha_inscripcion
+            `SELECT d.id_disciplina, d.nombre AS disciplina, i.id_deportista, p.nombre_completo AS deportista, i.fecha_inscripcion
                FROM disciplina_entrenador de
                JOIN disciplina d ON d.id_disciplina = de.id_disciplina
                JOIN inscripcion i ON i.id_disciplina = d.id_disciplina AND i.estado = 'ACTIVA'

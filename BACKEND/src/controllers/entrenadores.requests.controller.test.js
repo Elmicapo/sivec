@@ -18,6 +18,10 @@ function response() {
     }
 }
 
+function schemaRows(names) {
+    return [names.map((name) => ({ name, type: 'BASE TABLE' }))]
+}
+
 class RequestConnection {
     constructor({ pending = false, approved = false, profile = true, discipline = true } = {}) {
         this.pending = pending
@@ -36,6 +40,7 @@ class RequestConnection {
 
     async query(sql, values = []) {
         this.queries.push({ sql, values })
+        if (sql.includes('information_schema.TABLES')) return schemaRows(values)
         if (sql.includes('FROM entrenador')) return [this.profile ? [{ id_persona: 8 }] : []]
         if (sql.includes('FROM disciplina_entrenador')) return [this.approved ? [{ 1: 1 }] : []]
         if (sql.includes('FROM solicitud_vinculacion_entrenador')) {
@@ -82,6 +87,7 @@ test('trainer request history is filtered by authenticated id_persona', async ()
     const calls = []
     const handlers = createVinculacionHandlers({
         query: async (sql, values) => {
+            if (sql.includes('information_schema.TABLES')) return schemaRows(values)
             calls.push({ sql, values })
             return [[{ id_entrenador: 8, estado: 'PENDIENTE' }]]
         }

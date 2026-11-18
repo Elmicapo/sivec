@@ -179,3 +179,17 @@ the independent officialization operation. Validation never updates the
 scenario; only the CMJ officialization transaction updates the semáforo and
 history. Application role checks and a `cmj_consejero` profile check are both
 required.
+
+## Propuestas solo con GPS
+
+La migración `006_scenario_gps_without_territory.js` admite propuestas con
+coordenadas sin exigir comuna, barrio, corregimiento o vereda. En ese caso la
+zona queda vacía y el tipo de localidad queda pendiente de verificación.
+Las propuestas existentes y la ubicación manual conservan sus reglas.
+
+Prepara un respaldo del esquema de demostración antes de aplicar `006`.
+Usa el migrador desde una copia cuyos archivos históricos coincidan con sus
+checksums registrados. Si hay una discrepancia, conserva el respaldo y
+revisa los archivos originales antes de continuar. Comprueba con `--status`
+que `006` figure como `APPLIED`. Hasta entonces la API permite el flujo
+manual y devuelve un aviso controlado para las propuestas solo con GPS.

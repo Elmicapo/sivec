@@ -139,14 +139,14 @@ const createVeeduriaService = (pool) => {
         });
     };
 
-    const withTransaction = async (operation) => {
+    const withTransaction = async (operation, assertSchema = assertMigrationsApplied) => {
         const connection = await pool.getConnection();
         let started = false;
 
         try {
             await connection.beginTransaction();
             started = true;
-            await assertMigrationsApplied(connection);
+            await assertSchema(connection);
             const result = await operation(connection);
             await connection.commit();
             return result;
@@ -188,7 +188,13 @@ const createVeeduriaService = (pool) => {
     return {
         async crearSolicitudEscenario(datos) {
             return withTransaction(async (connection) => {
-                await assertScenarioMigrationsApplied(connection);
+                if (datos.tipo_ubicacion === 'GPS' && datos.zona == null) {
+                    await assertSchemaMigrationsApplied(connection, ['006'], {
+                        code: 'SCENARIO_GPS_SCHEMA_NOT_READY',
+                        message: 'Las propuestas solo con GPS aún no están habilitadas. Puedes usar la ubicación manual.',
+                        createError: (code, message) => new VeeduriaError(503, code, message)
+                    });
+                }
                 const [disciplinas] = await connection.query(
                     'SELECT id_disciplina FROM disciplina WHERE id_disciplina = ? AND estado = ?',
                     [datos.id_disciplina, 'ACTIVA']
@@ -217,7 +223,7 @@ const createVeeduriaService = (pool) => {
                     [result.insertId, fechaUtc]
                 );
                 return { id_solicitud_escenario: result.insertId, estado_revision: 'PENDIENTE' };
-            });
+            }, assertScenarioMigrationsApplied);
         },
 
         async obtenerSolicitudesEscenarioPendientes() {
@@ -237,7 +243,6 @@ const createVeeduriaService = (pool) => {
 
         async resolverSolicitudEscenario({ idSolicitud, estado, idCmj, observacion }) {
             return withTransaction(async (connection) => {
-                await assertScenarioMigrationsApplied(connection);
                 await assertCmj(connection, idCmj);
                 const [solicitudes] = await connection.query(
                     `SELECT s.*, d.nombre AS disciplina
@@ -260,9 +265,11 @@ const createVeeduriaService = (pool) => {
                 const fechaUtc = await obtenerFechaUtc(connection);
                 let idEscenario = null;
                 if (estado === 'APROBADA') {
-                    const ubicacion = solicitud.zona === 'URBANA'
-                        ? `${solicitud.comuna} - ${solicitud.barrio}`
-                        : `${solicitud.corregimiento} - ${solicitud.localidad_rural}`;
+                    const ubicacion = solicitud.zona === null
+                        ? 'Ubicación registrada por GPS'
+                        : solicitud.zona === 'URBANA'
+                            ? `${solicitud.comuna} - ${solicitud.barrio}`
+                            : `${solicitud.corregimiento} - ${solicitud.localidad_rural}`;
                     const [escenario] = await connection.query(
                         `INSERT INTO escenario
                             (nombre, ubicacion, zona, tipo_localidad, tipo_ubicacion,
@@ -297,7 +304,7 @@ const createVeeduriaService = (pool) => {
                     [idSolicitud, estado, idCmj, observacion, fechaUtc]
                 );
                 return { id_solicitud_escenario: idSolicitud, estado_revision: estado, id_escenario: idEscenario };
-            });
+            }, assertScenarioMigrationsApplied);
         },
 
         async crearReporte(datos) {
@@ -505,7 +512,16 @@ const createVeeduriaService = (pool) => {
                 [idReporte]
             );
 
-            return { ...rows[0], historial_decisiones: events };
+            const [evidencias] = await pool.query(
+                `SELECT ev.orden
+                   FROM evidencia_veeduria ev
+                   JOIN solicitud_veeduria sv ON sv.id_solicitud_veeduria = ev.id_solicitud_veeduria
+                  WHERE sv.id_reporte = ?
+                  ORDER BY ev.orden`,
+                [idReporte]
+            );
+
+            return { ...rows[0], historial_decisiones: events, evidencias };
         },
 
         async obtenerHistorialEscenario(idEscenario) {

@@ -1,9 +1,9 @@
-import { pool } from '../db.js'; // Ajusta según la conexión de tu base de datos
+const pool = require('../config/db');
 
 // 1. Obtener los horarios de la agenda de un entrenador
-export const obtenerAgendaEntrenador = async (req, res) => {
+const obtenerAgendaEntrenador = async (req, res) => {
     try {
-        const id_entrenador = req.user.id; // O según el payload de tu token/sesión
+        const id_entrenador = req.usuario.id_persona;
 
         const [rows] = await pool.query(
             `SELECT a.id_agenda AS id, a.dia, a.hora_inicio, a.hora_fin, 
@@ -24,9 +24,9 @@ export const obtenerAgendaEntrenador = async (req, res) => {
 };
 
 // 2. Crear un nuevo registro en la agenda
-export const crearHorarioAgenda = async (req, res) => {
+const crearHorarioAgenda = async (req, res) => {
     const { dia, hora_inicio, hora_fin, id_deporte_escenario, vigencia } = req.body;
-    const id_entrenador = req.user.id;
+    const id_entrenador = req.usuario.id_persona;
 
     try {
         const [result] = await pool.query(
@@ -43,9 +43,9 @@ export const crearHorarioAgenda = async (req, res) => {
 };
 
 // 3. Eliminar un registro de la agenda
-export const eliminarHorarioAgenda = async (req, res) => {
+const eliminarHorarioAgenda = async (req, res) => {
     const { id } = req.params;
-    const id_entrenador = req.user.id;
+    const id_entrenador = req.usuario.id_persona;
 
     try {
         const [result] = await pool.query(
@@ -63,3 +63,5 @@ export const eliminarHorarioAgenda = async (req, res) => {
         res.status(500).json({ message: 'Error al eliminar el horario' });
     }
 };
+
+module.exports = { obtenerAgendaEntrenador, crearHorarioAgenda, eliminarHorarioAgenda };

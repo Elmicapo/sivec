@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// --- CONFIGURACIÓN BASE DE AXIOS ---
+const baseURL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 const API = axios.create({
-  baseURL: 'http://localhost:4000/api', // Asegúrate de que coincida con tu backend
+  baseURL,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -33,7 +33,7 @@ export const crearReporteVeeduria = (reporteData) => API.post('/escenarios/repor
 
 export const crearCronograma = async (datosCronograma) => {
     // Usando fetch como me lo pasaste, aunque podrías usar la instancia "API" de axios que configuramos arriba
-    const response = await fetch(`http://localhost:4000/api/cronogramas`, { 
+    const response = await fetch(`${baseURL}/cronogramas`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

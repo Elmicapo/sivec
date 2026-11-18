@@ -1,4 +1,5 @@
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { useSyncExternalStore } from 'react';
+import { Routes, Route, useLocation, Navigate, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import RutaProtegida from './components/RutaProtegida';
@@ -36,8 +37,20 @@ const RutaAdministrativa = ({ children }) => {
     return children;
 };
 
+function suscribirConexion(actualizar) {
+  window.addEventListener('online', actualizar);
+  window.addEventListener('offline', actualizar);
+  return () => {
+    window.removeEventListener('online', actualizar);
+    window.removeEventListener('offline', actualizar);
+  };
+}
+
+const leerConexion = () => navigator.onLine;
+
 function App() {
   const location = useLocation();
+  const conectado = useSyncExternalStore(suscribirConexion, leerConexion);
   const authMode = location.pathname === '/registro'
     ? 'registro'
     : location.pathname === '/login'
@@ -52,6 +65,11 @@ function App() {
     <>
       <ScrollToTop />
       <Navbar />
+      {!conectado && (
+        <p role="status" className="sivec-alert sivec-alert-info">
+          Estás sin conexión. Puedes ver las consultas guardadas, que pueden estar desactualizadas. Conéctate para consultar datos nuevos o enviar información.
+        </p>
+      )}
       <Routes location={backgroundLocation}>
         {/* Vistas Públicas */}
         <Route path="/" element={<Escenarios />} />
@@ -85,6 +103,17 @@ function App() {
         <Route path="/entrenador/solicitudes" element={<RutaProtegida roles={['ENTRENADOR']}><MisSolicitudesEntrenador /></RutaProtegida>} />
         <Route path="/deportista" element={<RutaProtegida roles={['DEPORTISTA']}><MiHistorial /></RutaProtegida>} />
         <Route path="/cmj" element={<RutaProtegida roles={['CMJ']}><PanelCMJ /></RutaProtegida>} />
+        <Route path="*" element={
+          <main className="offer-page">
+            <section className="offer-container offer-container-narrow offer-filter-panel">
+              <header className="offer-page-heading">
+                <h1>Página no encontrada</h1>
+                <p>Revisa la dirección o vuelve al inicio de SIVEC.</p>
+              </header>
+              <Link to="/" className="offer-button offer-button-primary">Volver a Inicio</Link>
+            </section>
+          </main>
+        } />
       </Routes>
       
       {authMode && <AuthModal mode={authMode} />}

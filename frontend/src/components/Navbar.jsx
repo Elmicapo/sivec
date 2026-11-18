@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const ENLACES_PUBLICOS = [
@@ -63,8 +63,10 @@ export default function Navbar() {
   }
 
   const enlacesRol = usuario ? ENLACES_ROL[usuario.rol] || [] : []
-  const classLink = ({ isActive }) =>
-    `site-nav-link${isActive ? ' site-nav-link-active' : ''}`
+  const rutaActiva = ENLACES_PUBLICOS.some(([ruta]) => ruta === ubicacionActual)
+    ? ubicacionActual
+    : location.pathname
+  const enlaces = [['/', 'Inicio'], ...ENLACES_PUBLICOS, ...enlacesRol]
 
   return (
     <header className="site-header">
@@ -83,12 +85,15 @@ export default function Navbar() {
             id="site-navigation"
           >
             <div className="site-nav-links">
-              <NavLink className={classLink} end to="/">Inicio</NavLink>
-              {ENLACES_PUBLICOS.map(([ruta, texto]) => (
-                <NavLink className={classLink} key={ruta} to={ruta}>{texto}</NavLink>
-              ))}
-              {enlacesRol.map(([ruta, texto]) => (
-                <NavLink className={classLink} key={ruta} to={ruta}>{texto}</NavLink>
+              {enlaces.map(([ruta, texto]) => (
+                <Link
+                  key={ruta}
+                  to={ruta}
+                  aria-current={rutaActiva === ruta ? (ruta.includes('#') ? 'location' : 'page') : undefined}
+                  className={`site-nav-link${rutaActiva === ruta ? ' site-nav-link-active' : ''}`}
+                >
+                  {texto}
+                </Link>
               ))}
             </div>
 

@@ -1,20 +1,21 @@
-import { Router } from 'express';
-import { 
-    obtenerAgendaEntrenador, 
-    crearHorarioAgenda, 
-    eliminarHorarioAgenda 
-} from '../controllers/agenda.controller.js';
-import { verifyToken, isEntrenador } from '../middlewares/auth.middleware.js'; // Ajusta a tus middlewares
+const { Router } = require('express');
+const {
+    obtenerAgendaEntrenador,
+    crearHorarioAgenda,
+    eliminarHorarioAgenda
+} = require('../controllers/agenda.controller');
+const { verificarToken, permitirRoles } = require('../middlewares/authMiddleware');
 
 const router = Router();
+const isEntrenador = permitirRoles('ENTRENADOR');
 
 // Consultar la agenda del entrenador autenticado
-router.get('/entrenador', [verifyToken, isEntrenador], obtenerAgendaEntrenador);
+router.get('/entrenador', verificarToken, isEntrenador, obtenerAgendaEntrenador);
 
 // Crear un nuevo horario en la agenda
-router.post('/', [verifyToken, isEntrenador], crearHorarioAgenda);
+router.post('/', verificarToken, isEntrenador, crearHorarioAgenda);
 
 // Eliminar un horario de la agenda por su ID
-router.delete('/:id', [verifyToken, isEntrenador], eliminarHorarioAgenda);
+router.delete('/:id', verificarToken, isEntrenador, eliminarHorarioAgenda);
 
-export default router;
+module.exports = router;
