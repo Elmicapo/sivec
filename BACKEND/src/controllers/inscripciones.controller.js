@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { configuracionCorreo, encolarCorreo } = require('../services/correo.service');
 const { assertSchemaObjectsAvailable, SchemaNotReadyError } = require('../utils/schemaAvailability');
 
 const MENSAJES_MYSQL = [
@@ -18,6 +19,34 @@ function mensajeDeReglaMySQL(error) {
     const detalle = typeof error.message === 'string' ? error.message.toLowerCase() : '';
     const regla = MENSAJES_MYSQL.find(({ texto }) => detalle.includes(texto));
     return regla?.mensaje || 'La inscripción no cumple una regla de integridad.'
+}
+
+async function insertarInscripcion(database, idDeportista, idDisciplina) {
+    const sql = "INSERT INTO inscripcion (id_deportista, id_disciplina, estado) VALUES (?, ?, 'ACTIVA')";
+    const parametros = [idDeportista, idDisciplina];
+    if (!configuracionCorreo()) return database.query(sql, parametros);
+
+    const connection = await database.getConnection();
+    try {
+        await connection.beginTransaction();
+        const resultado = await connection.query(sql, parametros);
+        const [[contacto]] = await connection.query(
+            'SELECT p.correo_electronico, d.nombre FROM persona p JOIN disciplina d ON d.id_disciplina = ? WHERE p.id_persona = ?',
+            [idDisciplina, idDeportista]
+        );
+        await encolarCorreo(connection, {
+            para: contacto?.correo_electronico,
+            asunto: 'Inscripción confirmada en SIVEC',
+            texto: `Tu inscripción en ${contacto?.nombre} quedó registrada. Puedes revisarla en Mi historial.`
+        });
+        await connection.commit();
+        return resultado;
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
 }
 
 function crearInscripcionesController({ database = db } = {}) {
@@ -60,11 +89,7 @@ function crearInscripcionesController({ database = db } = {}) {
                 return res.status(400).json({ success: false, message: 'La disciplina no está activa.' });
             }
 
-            const [result] = await database.query(
-                `INSERT INTO inscripcion (id_deportista, id_disciplina, estado)
-                 VALUES (?, ?, 'ACTIVA')`,
-                [idDeportista, idDisciplina]
-            );
+            const [result] = await insertarInscripcion(database, idDeportista, idDisciplina);
 
             return res.status(201).json({
                 success: true,

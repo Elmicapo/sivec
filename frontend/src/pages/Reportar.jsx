@@ -128,7 +128,8 @@ const FORM_INICIAL = {
   estado_propuesto: '',
   descripcion: '',
   nombre_completo: '',
-  correo_electronico: ''
+  correo_electronico: '',
+  correo_notificacion: ''
 }
 
 export default function Reportar() {
@@ -507,6 +508,11 @@ export default function Reportar() {
         return
       }
     }
+    const correoNotificacion = form.correo_notificacion.trim()
+    if (!esReporte && correoNotificacion && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoNotificacion)) {
+      setErrores({ correo_notificacion: 'Escribe un correo válido para recibir novedades.' })
+      return
+    }
     setErrores({})
 
     setEnviando(true)
@@ -534,6 +540,7 @@ export default function Reportar() {
           id_disciplina: Number(form.id_disciplina),
           nombre_escenario: form.nombre_escenario.trim(),
           tipo_escenario: form.tipo_fisico_escenario,
+          ...(correoNotificacion ? { correo_notificacion: correoNotificacion } : {}),
           ...(manual ? {
             zona: form.zona.toUpperCase(),
             comuna: form.comuna || null,
@@ -971,6 +978,14 @@ export default function Reportar() {
                   <p className="mt-1 break-all text-sm text-slate-300">{form.correo_electronico || 'Sin correo'}</p>
                 </article>}
               </div>
+
+              {!esReporte && (
+                <Campo id="correo-notificacion" etiqueta="Correo para novedades (opcional)" error={errores.correo_notificacion}
+                    ayuda="Si lo escribes, podrás recibir la confirmación y la decisión del CMJ.">
+                  <input id="correo-notificacion" type="email" autoComplete="email" maxLength={254} className={CLASE_CAMPO}
+                    value={form.correo_notificacion} onChange={event => actualizar('correo_notificacion', event.target.value)} />
+                </Campo>
+              )}
 
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-950/50 p-4 text-sm leading-6 text-slate-300">
                 <input type="checkbox" checked={confirmado} disabled={enviando || enviado} onChange={(event) => {

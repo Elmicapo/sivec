@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { configuracionCorreo, encolarCorreo } = require('./correo.service');
 const { assertMigrationsApplied: assertSchemaMigrationsApplied } = require('../utils/schemaAvailability');
 
 const MAX_EVIDENCIAS = 5;
@@ -185,6 +186,20 @@ const createVeeduriaService = (pool) => {
         return valueAsString.endsWith('Z') ? valueAsString : `${valueAsString}Z`;
     };
 
+    const notificarReporte = async (connection, idReporte, asunto, texto) => {
+        const correo = configuracionCorreo();
+        if (!correo) return;
+        const [[contacto]] = await connection.query(
+            'SELECT correo_contacto FROM solicitud_veeduria WHERE id_reporte = ?', [idReporte]
+        );
+        await encolarCorreo(connection, {
+            para: contacto?.correo_contacto,
+            asunto,
+            texto: `Reporte #${idReporte}. ${texto}
+Consulta su estado con el código de tu comprobante: ${correo.web}/seguimiento`
+        });
+    };
+
     return {
         async crearSolicitudEscenario(datos) {
             return withTransaction(async (connection) => {
@@ -222,6 +237,18 @@ const createVeeduriaService = (pool) => {
                      VALUES (?, NULL, 'PENDIENTE', NULL, NULL, ?)`,
                     [result.insertId, fechaUtc]
                 );
+                if (datos.correo_notificacion) {
+                    await connection.query(
+                        'UPDATE solicitud_escenario SET correo_notificacion = ? WHERE id_solicitud_escenario = ?',
+                        [datos.correo_notificacion, result.insertId]
+                    );
+                    await encolarCorreo(connection, {
+                        para: datos.correo_notificacion,
+                        asunto: 'Propuesta de escenario recibida por SIVEC',
+                        texto: `La propuesta #${result.insertId} para ${datos.nombre_escenario} quedó pendiente de revisión por el CMJ.`,
+                        limitePublico: true
+                    });
+                }
                 return { id_solicitud_escenario: result.insertId, estado_revision: 'PENDIENTE' };
             }, assertScenarioMigrationsApplied);
         },
@@ -303,6 +330,11 @@ const createVeeduriaService = (pool) => {
                      VALUES (?, 'PENDIENTE', ?, ?, ?, ?)`,
                     [idSolicitud, estado, idCmj, observacion, fechaUtc]
                 );
+                await encolarCorreo(connection, {
+                    para: solicitud.correo_notificacion,
+                    asunto: 'El CMJ revisó tu propuesta en SIVEC',
+                    texto: `La propuesta #${idSolicitud} para ${solicitud.nombre_escenario} fue ${estado.toLowerCase()}.`
+                });
                 return { id_solicitud_escenario: idSolicitud, estado_revision: estado, id_escenario: idEscenario };
             }, assertScenarioMigrationsApplied);
         },
@@ -395,6 +427,17 @@ const createVeeduriaService = (pool) => {
                         ]
                     );
                 }
+                    const correo = configuracionCorreo();
+                    if (correo) {
+                        await encolarCorreo(connection, {
+                            para: datos.correo_electronico,
+                            asunto: 'Comprobante de tu veeduría en SIVEC',
+                            texto: `Tu reporte #${reporte.insertId} quedó pendiente de revisión por el CMJ.
+Código de seguimiento: ${codigoSeguimiento}
+Consulta: ${correo.web}/seguimiento`,
+                            limitePublico: true
+                        });
+                    }
                     return reporte.insertId;
                 });
             } catch (error) {
@@ -581,6 +624,8 @@ const createVeeduriaService = (pool) => {
                     [idReporte, estado, idCmj, observacion, fechaUtc]
                 );
 
+                await notificarReporte(connection, idReporte, 'El CMJ revisó tu veeduría en SIVEC',
+                    `Tu reporte fue ${estado.toLowerCase()}.`);
                 return { id_reporte: idReporte, estado_reporte: estado, fecha_validacion: toUtcIso(fechaUtc) };
             });
         },
@@ -664,6 +709,8 @@ const createVeeduriaService = (pool) => {
                     throw new VeeduriaError(409, 'ALREADY_OFFICIALIZED', 'El reporte ya fue oficializado.');
                 }
 
+                await notificarReporte(connection, idReporte, 'Semáforo oficializado en SIVEC',
+                    `El CMJ oficializó el estado ${report.estado_propuesto} del escenario.`);
                 return {
                     id_reporte: idReporte,
                     estado_anterior: estadoAnterior,

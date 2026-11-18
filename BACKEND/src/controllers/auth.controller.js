@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { encolarCorreo, versionarSesiones } = require('../services/correo.service');
 const { assertMigrationsApplied, SchemaNotReadyError } = require('../utils/schemaAvailability');
 
 const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
@@ -25,7 +26,7 @@ const createAuthController = ({
         try {
             const [resultados] = await database.query(
                 `SELECT u.id_usuario, u.login, u.password_hash, u.activo,
-                        r.id_rol, r.nombre AS nombre_rol,
+                        r.id_rol, r.nombre AS nombre_rol, ${versionarSesiones() ? 'u.version_sesion,' : ''}
                         p.id_persona, p.nombre_completo, p.correo_electronico
                  FROM usuario u
                  JOIN persona p ON u.id_persona = p.id_persona
@@ -51,7 +52,8 @@ const createAuthController = ({
                     id_usuario: usuario.id_usuario,
                     id_persona: usuario.id_persona,
                     nombre: usuario.nombre_completo,
-                    rol: usuario.nombre_rol
+                    rol: usuario.nombre_rol,
+                    ...(usuario.version_sesion != null ? { version_sesion: usuario.version_sesion } : {})
                 },
                 process.env.JWT_SECRET,
                 { expiresIn: '8h' }
@@ -246,6 +248,13 @@ const createAuthController = ({
                 );
             }
 
+            await encolarCorreo(connection, {
+                para: correo,
+                asunto: 'Tu cuenta de SIVEC está registrada',
+                texto: tipoUsuario === 'ENTRENADOR'
+                    ? 'Tu cuenta de SIVEC está lista. Tu vinculación con la disciplina queda pendiente de revisión administrativa.'
+                    : 'Tu cuenta de SIVEC está lista. Ya puedes iniciar sesión para consultar disciplinas e inscribirte.'
+            });
             await connection.commit();
             return res.status(201).json({
                 success: true,

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { correoValido, configuracionCorreo } = require('../services/correo.service');
 const { createVeeduriaService, VeeduriaError } = require('../services/veeduria.service');
 const { registrarError } = require('../utils/safeError');
 
@@ -128,8 +129,16 @@ const crearSolicitudEscenario = async (req, res) => {
     if (!datos) {
         return res.status(400).json({ success: false, message: 'Los datos territoriales o de ubicación no son válidos.' });
     }
+    const correo = req.body?.correo_notificacion;
+    const correoNotificacion = typeof correo === 'string' ? correo.trim().toLowerCase() : '';
+    if (correo != null && !correoValido(correoNotificacion)) {
+        return res.status(400).json({ success: false, message: 'El correo de notificaciones no es válido.' });
+    }
+    if (correoNotificacion && !configuracionCorreo()) {
+        return res.status(503).json({ success: false, message: 'Las notificaciones por correo aún no están habilitadas. Puedes enviar la propuesta sin correo.' });
+    }
     try {
-        const data = await service.crearSolicitudEscenario(datos);
+        const data = await service.crearSolicitudEscenario({ ...datos, correo_notificacion: correoNotificacion || null });
         return res.status(201).json({ success: true, message: 'Propuesta enviada para revisión del CMJ.', data });
     } catch (error) {
         return responderError(res, error, 'crear propuesta de escenario');

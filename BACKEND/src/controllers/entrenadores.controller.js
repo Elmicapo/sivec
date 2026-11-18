@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { configuracionCorreo, encolarCorreo } = require('../services/correo.service');
 const { responderErrorInterno } = require('../utils/safeError');
 const { assertSchemaObjectsAvailable, SchemaNotReadyError } = require('../utils/schemaAvailability');
 
@@ -218,6 +219,16 @@ const createVinculacionHandlers = (database = db) => {
                  WHERE id_solicitud_vinculacion = ? AND estado = 'PENDIENTE'`,
                 [estado, req.usuario.id_persona, idSolicitud]
             );
+            if (configuracionCorreo()) {
+                const [[contacto]] = await connection.query(
+                    'SELECT correo_electronico FROM persona WHERE id_persona = ?', [solicitud.id_entrenador]
+                );
+                await encolarCorreo(connection, {
+                    para: contacto?.correo_electronico,
+                    asunto: 'Tu solicitud de vinculación en SIVEC',
+                    texto: `La solicitud #${idSolicitud} fue ${estado.toLowerCase()}. Revisa el detalle en Mis solicitudes de SIVEC.`
+                });
+            }
             await connection.commit();
             return res.json({
                 success: true,

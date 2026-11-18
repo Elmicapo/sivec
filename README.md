@@ -45,3 +45,26 @@ El deportista puede leer su último historial visto durante la misma sesión del
 3. Restaura un respaldo base autorizado con datos ficticios. Desde un proceso con acceso al MySQL privado, verifica o aplica las migraciones de la copia siguiendo la [guía](BACKEND/migrations/README.md). Usa una cuenta de migración separada si la cuenta de aplicación carece de permisos DDL.
 4. Monta un volumen persistente para las evidencias en `/app/data`. Verifica que el usuario del contenedor pueda escribir en el volumen. El Dockerfile usa el usuario `node` (UID 1000) y define `VEEDURIA_STORAGE_DIR=/app/data`.
 5. Genera un dominio HTTPS para la aplicación. Abre Inicio y una ruta directa, como `/seguimiento`. Instala SIVEC desde el menú del navegador, comprueba que abra sin conexión después de la primera carga y vuelve a conectar para ejecutar los recorridos de entrega. Reinicia el servicio y comprueba que las fotos ya guardadas sigan disponibles.
+
+## Correos de SIVEC
+
+Después de respaldar la base y aplicar la migración `007` en el esquema de demostración, configura en el servicio SIVEC de Railway:
+
+| Variable | Uso |
+| --- | --- |
+| `RESEND_API_KEY` | Clave de envío de Resend. |
+| `SIVEC_MAIL_FROM` | Remitente autorizado en Resend, por ejemplo `SIVEC <notificaciones@tu-dominio>`. |
+| `SIVEC_PUBLIC_URL` | Origen HTTPS de la aplicación, sin rutas. |
+| `SIVEC_MAIL_QUEUE_KEY` | Clave de 32 bytes en hexadecimal. Genera una nueva con `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` y guárdala en Railway. Mantén la misma clave mientras haya mensajes en cola y para conservar el control de sesiones después de un restablecimiento. |
+
+Con la configuración completa se envían confirmaciones de cuenta, inscripciones, vinculación, recepción y decisiones de veeduría, y avisos de propuestas con correo voluntario. El restablecimiento vence a los 30 minutos, se usa una sola vez e invalida los tokens de sesión anteriores de la cuenta. Los mensajes pendientes se cifran en MySQL, se reintentan ante fallos del proveedor y se purgan tras su vencimiento. Conserva las claves fuera del repositorio.
+
+Antes de habilitar los envíos generales, prueba el remitente con una cuenta de demostración en línea. Verifica que el enlace de recuperación expire y que la bandeja reciba la confirmación de una inscripción y la de una veeduría.
+
+#### Gmail para una demo sin dominio
+
+1. En Google Cloud, habilita Gmail API. Configura la pantalla de consentimiento y, si la aplicación está en pruebas, agrega la cuenta de SIVEC como usuario de prueba.
+2. Crea un cliente OAuth de tipo Aplicación web con la URI de redirección autorizada `https://developers.google.com/oauthplayground`. En OAuth Playground activa **Use your own OAuth credentials**, usa ese cliente y autoriza el alcance `https://www.googleapis.com/auth/gmail.send` con la cuenta remitente. Intercambia el código de autorización por un token de actualización.
+3. En Railway configura `SIVEC_MAIL_PROVIDER=gmail`, `SIVEC_MAIL_FROM` con la dirección Gmail sola, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` y `GMAIL_REFRESH_TOKEN`. Conserva `SIVEC_PUBLIC_URL` y `SIVEC_MAIL_QUEUE_KEY`. Aplica la migración 007 antes de activar el envío.
+
+Para aplicaciones OAuth externas en modo de prueba, Google suele caducar el token de actualización al cabo de siete días. Gmail admite un volumen limitado y no ofrece la misma garantía de idempotencia que Resend si se pierde la respuesta a un envío ya procesado.

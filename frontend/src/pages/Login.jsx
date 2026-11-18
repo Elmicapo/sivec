@@ -128,6 +128,9 @@ export default function Login() {
             </button>
         </form>
 
+        <p className="mt-5 text-center text-sm">
+            <Link to="/recuperar-contrasena" className="font-semibold text-[#173F35] hover:underline">¿Olvidaste tu contraseña?</Link>
+        </p>
         {/* Pie del modal (Enlace a Registro) */}
         <p className="mt-8 text-center text-sm text-gray-600">
             ¿No tienes cuenta?{' '}

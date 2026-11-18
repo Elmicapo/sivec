@@ -15,6 +15,7 @@ import Cronogramas from './pages/Cronogramas';
 import PanelEntrenador from './pages/PanelEntrenador';
 import MisSolicitudesEntrenador from './pages/MisSolicitudesEntrenador';
 import SeguimientoVeeduria from './pages/SeguimientoVeeduria';
+import RecuperarContrasena from './pages/RecuperarContrasena';
 import ScrollToTop from './components/ScrollToTop';
 import AdministrarAgenda from './pages/AdministrarAgenda';
 
@@ -76,6 +77,8 @@ function App() {
         <Route path="/disciplinas" element={<Disciplinas />} />
         <Route path="/reportar" element={<Reportar />} />
         <Route path="/seguimiento" element={<SeguimientoVeeduria />} />
+        <Route path="/recuperar-contrasena" element={<RecuperarContrasena key="recuperar" />} />
+        <Route path="/restablecer-contrasena" element={<RecuperarContrasena key="restablecer" restablecer />} />
 
         {/* --- NUEVA VISTA ADMINISTRATIVA DE CRONOGRAMAS --- */}
         <Route 
