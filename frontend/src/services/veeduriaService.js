@@ -7,6 +7,9 @@ export const consultarSeguimiento = (codigo) => api.get(`/escenarios/reportes/se
 export const getHistorialEscenario = (id) => api.get(`/escenarios/reportes/escenario/${id}/historico`)
 export const getPendientes = () => api.get('/escenarios/reportes/pendientes')
 export const getPendientesOficializacion = () => api.get('/escenarios/reportes/validados-pendientes-oficializacion')
+export const getDetalleReporte = (id) => api.get(`/escenarios/reportes/${id}`)
+export const getEvidenciaReporte = (id, orden) =>
+  api.get(`/escenarios/reportes/${id}/evidencias/${orden}`, { responseType: 'blob' })
 export const resolverReporte = (id, datos) => api.put(`/escenarios/reportes/${id}/validar`, datos)
 export const oficializarReporte = (id) => api.post(`/escenarios/reportes/${id}/oficializar`)
 export const getSolicitudesEscenarioPendientes = () => api.get('/escenarios/solicitudes/pendientes')

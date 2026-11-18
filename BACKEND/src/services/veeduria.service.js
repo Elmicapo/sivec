@@ -505,7 +505,16 @@ const createVeeduriaService = (pool) => {
                 [idReporte]
             );
 
-            return { ...rows[0], historial_decisiones: events };
+            const [evidencias] = await pool.query(
+                `SELECT ev.orden
+                   FROM evidencia_veeduria ev
+                   JOIN solicitud_veeduria sv ON sv.id_solicitud_veeduria = ev.id_solicitud_veeduria
+                  WHERE sv.id_reporte = ?
+                  ORDER BY ev.orden`,
+                [idReporte]
+            );
+
+            return { ...rows[0], historial_decisiones: events, evidencias };
         },
 
         async obtenerHistorialEscenario(idEscenario) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import RevisionCMJ from '../components/RevisionCMJ';
 import {
     getHistorico,
     getPendientes,
@@ -45,7 +46,7 @@ function SeccionCMJ({ titulo, consultar, vacio, children }) {
     );
 }
 
-function ListaReportes({ reportes, oficializacion = false }) {
+function ListaReportes({ reportes, oficializacion = false, abrir }) {
     return (
         <ul className="divide-y divide-gray-100">
             {reportes.map(reporte => (
@@ -54,6 +55,9 @@ function ListaReportes({ reportes, oficializacion = false }) {
                     <p>Reporte #{reporte.id_reporte} · {reporte.fecha_reporte}</p>
                     <p>{oficializacion && `Estado actual: ${reporte.estado_actual} · `}Estado propuesto: {reporte.estado_propuesto}</p>
                     {reporte.descripcion && <p className="whitespace-pre-wrap wrap-break-word">{reporte.descripcion}</p>}
+                    <button type="button" className="offer-button offer-button-secondary mt-2" onClick={() => abrir(reporte)}>
+                        {oficializacion ? 'Revisar oficialización' : 'Revisar reporte'}
+                    </button>
                 </li>
             ))}
         </ul>
@@ -61,6 +65,16 @@ function ListaReportes({ reportes, oficializacion = false }) {
 }
 
 export default function PanelCMJ() {
+    const [revision, setRevision] = useState(null);
+    const [actualizacion, setActualizacion] = useState(0);
+    const [mensaje, setMensaje] = useState('');
+
+    const finalizar = texto => {
+        setRevision(null);
+        setMensaje(texto);
+        setActualizacion(valor => valor + 1);
+    };
+
     return (
         <div className="offer-page min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto space-y-8">
@@ -69,12 +83,14 @@ export default function PanelCMJ() {
                     <p>La validación y la oficialización del semáforo son operaciones independientes.</p>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                {mensaje && <p className="sivec-alert sivec-alert-success" role="status">{mensaje}</p>}
+
+                <div key={actualizacion} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                     <SeccionCMJ titulo="Reportes pendientes" consultar={getPendientes} vacio="No hay reportes pendientes.">
-                        {filas => <ListaReportes reportes={filas} />}
+                        {filas => <ListaReportes reportes={filas} abrir={item => setRevision({ tipo: 'reporte', item })} />}
                     </SeccionCMJ>
                     <SeccionCMJ titulo="Pendientes de oficialización" consultar={getPendientesOficializacion} vacio="No hay reportes validados pendientes de oficialización.">
-                        {filas => <ListaReportes reportes={filas} oficializacion />}
+                        {filas => <ListaReportes reportes={filas} oficializacion abrir={item => setRevision({ tipo: 'oficializacion', item })} />}
                     </SeccionCMJ>
                     <SeccionCMJ titulo="Propuestas de escenarios" consultar={getSolicitudesEscenarioPendientes} vacio="No hay propuestas pendientes.">
                         {filas => (
@@ -85,6 +101,9 @@ export default function PanelCMJ() {
                                         <p>{[propuesta.disciplina, propuesta.tipo_escenario].filter(Boolean).join(' · ')}</p>
                                         <p>{[propuesta.comuna, propuesta.barrio, propuesta.corregimiento, propuesta.localidad_rural].filter(Boolean).join(' · ')}</p>
                                         <p>Propuesta #{propuesta.id_solicitud_escenario} · {propuesta.fecha_solicitud}</p>
+                                        <button type="button" className="offer-button offer-button-secondary mt-2" onClick={() => setRevision({ tipo: 'propuesta', item: propuesta })}>
+                                            Revisar propuesta
+                                        </button>
                                     </li>
                                 ))}
                             </ul>
@@ -92,7 +111,7 @@ export default function PanelCMJ() {
                     </SeccionCMJ>
                 </div>
 
-                <SeccionCMJ titulo="Histórico de veedurías" consultar={getHistorico} vacio="Todavía no hay reportes en el histórico.">
+                <SeccionCMJ key={`historico-${actualizacion}`} titulo="Histórico de veedurías" consultar={getHistorico} vacio="Todavía no hay reportes en el histórico.">
                     {filas => (
                         <div className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2" role="region" aria-label="Tabla del histórico de veedurías" tabIndex={0}>
                             <table className="w-full text-left border-collapse">
@@ -120,6 +139,7 @@ export default function PanelCMJ() {
                         </div>
                     )}
                 </SeccionCMJ>
+                {revision && <RevisionCMJ {...revision} cerrar={() => setRevision(null)} finalizar={finalizar} />}
             </div>
         </div>
     );
