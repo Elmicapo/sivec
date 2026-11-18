@@ -659,6 +659,11 @@ export default function Reportar() {
                       autoComplete="off"
                     />
                   </Campo>
+                  {escenarioSeleccionado && (
+                    <p className="sivec-alert sivec-alert-info wrap-break-word" role="status">
+                      Seleccionado: <strong>{escenarioSeleccionado.nombre}</strong>
+                    </p>
+                  )}
                   {cargandoEscenarios && <p className="text-sm text-slate-400" role="status">Cargando escenarios…</p>}
                   {errorEscenarios && <p className="rounded-xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm text-rose-200" role="alert">{errorEscenarios}</p>}
                   {!cargandoEscenarios && !errorEscenarios && (
@@ -688,11 +693,6 @@ export default function Reportar() {
                         </p>
                       )}
                     </div>
-                  )}
-                  {escenarioSeleccionado && (
-                    <p className="rounded-xl border border-blue-400/20 bg-blue-400/10 p-3 text-sm text-blue-100">
-                      Seleccionado: <strong>{escenarioSeleccionado.nombre}</strong>
-                    </p>
                   )}
                 </div>
               ) : (
