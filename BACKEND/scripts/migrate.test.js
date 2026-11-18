@@ -301,6 +301,24 @@ test('an applied migration with the same checksum is not executed again', async 
   assert.equal(connection.queries.filter(({ sql }) => sql.includes('INSERT INTO sivec_schema_migrations')).length, 0)
 })
 
+test('isolated migration accepts a CRLF ledger on Linux and rejects other byte changes', async () => {
+  const [migration] = loadMigrations()
+  const [lf, crlf] = migration.lineEndingChecksums
+  assert.notEqual(lf, crlf)
+  const row = {
+    version: migration.version,
+    migration_name: migration.name,
+    checksum: crlf,
+    status: 'APPLIED'
+  }
+  const current = { ...migration, checksum: lf, up: async () => assert.fail('Applied migration ran again.') }
+  await runMigrations(new FakeConnection([row]), 'sivec_migration_test_01', [current])
+  await assert.rejects(
+    runMigrations(new FakeConnection([{ ...row, checksum: '0'.repeat(64) }]), 'sivec_migration_test_01', [current]),
+    /has changed/
+  )
+})
+
 test('a failed migration is recorded and stops later migrations', async () => {
   let secondMigrationRan = false
   const migrations = [

@@ -40,10 +40,21 @@ function loadMigrations(directory = MIGRATIONS_DIR) {
       throw new Error(`Migration ${name} must export an up(connection) function.`)
     }
 
+    const bytes = fs.readFileSync(filePath)
+    const lf = bytes.toString('utf8').replace(/\r\n/g, '\n')
+    const crlf = lf.replace(/\n/g, '\r\n')
+    const hash = (content) => crypto.createHash('sha256').update(content).digest('hex')
+    const checksum = hash(bytes)
+    const lineEndingChecksums = Buffer.from(bytes.toString('utf8')).equals(bytes)
+      && (bytes.equals(Buffer.from(lf)) || bytes.equals(Buffer.from(crlf)))
+      ? [hash(lf), hash(crlf)]
+      : []
+
     return {
       version,
       name,
-      checksum: crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex'),
+      checksum,
+      lineEndingChecksums,
       up: migration.up
     }
   })
@@ -104,7 +115,9 @@ async function runMigrationsInternal(
       if (beforeMigration) await beforeMigration(migration, existingRows)
       const applied = existing.get(migration.version)
       if (applied) {
-        if (applied.migration_name !== migration.name || applied.checksum !== migration.checksum) {
+        const checksumMatches = applied.checksum === migration.checksum
+          || (!allowOriginal && migration.lineEndingChecksums?.includes(applied.checksum))
+        if (applied.migration_name !== migration.name || !checksumMatches) {
           throw new Error(`Migration ${migration.version} has changed since it was recorded.`)
         }
         if (applied.status === 'APPLIED') {
