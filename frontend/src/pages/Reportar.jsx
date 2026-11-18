@@ -113,6 +113,24 @@ function Campo({ etiqueta, error, ayuda, id, children }) {
 
 const CLASE_CAMPO = 'w-full rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/20'
 
+const FORM_INICIAL = {
+  tipo_escenario: 'existente',
+  id_escenario: '',
+  zona: '',
+  comuna: '',
+  barrio: '',
+  corregimiento: '',
+  localidad: '',
+  nombre_escenario: '',
+  tipo_fisico_escenario: '',
+  id_disciplina: '',
+  tipo_ubicacion: '',
+  estado_propuesto: '',
+  descripcion: '',
+  nombre_completo: '',
+  correo_electronico: ''
+}
+
 export default function Reportar() {
   const [paso, setPaso] = useState(0)
   const [escenarios, setEscenarios] = useState([])
@@ -122,23 +140,7 @@ export default function Reportar() {
   const [errorEscenarios, setErrorEscenarios] = useState('')
   const [errorDisciplinas, setErrorDisciplinas] = useState('')
   const [busqueda, setBusqueda] = useState('')
-  const [form, setForm] = useState({
-    tipo_escenario: 'existente',
-    id_escenario: '',
-    zona: '',
-    comuna: '',
-    barrio: '',
-    corregimiento: '',
-    localidad: '',
-    nombre_escenario: '',
-    tipo_fisico_escenario: '',
-    id_disciplina: '',
-    tipo_ubicacion: '',
-    estado_propuesto: '',
-    descripcion: '',
-    nombre_completo: '',
-    correo_electronico: ''
-  })
+  const [form, setForm] = useState(FORM_INICIAL)
   const [ubicacionGps, setUbicacionGps] = useState(null)
   const [solicitandoGps, setSolicitandoGps] = useState(false)
   const [errorGps, setErrorGps] = useState('')
@@ -152,6 +154,7 @@ export default function Reportar() {
   const [confirmado, setConfirmado] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState(null)
+  const enviado = Boolean(resultado && !resultado.error)
   const pasos = form.tipo_escenario === 'existente' ? PASOS : PASOS_PROPUESTA
 
   useEffect(() => {
@@ -236,7 +239,7 @@ export default function Reportar() {
     setErrores({})
   }
 
-  const validarPaso = (indice) => {
+  const erroresDePaso = (indice) => {
     const nuevosErrores = {}
     if (indice === 0) {
       if (form.tipo_escenario === 'existente') {
@@ -273,14 +276,14 @@ export default function Reportar() {
       if (pesoTotal > MAX_PESO_TOTAL) nuevosErrores.fotos = 'El peso total de las fotografías supera 20 MB.'
       if (procesandoFotos) nuevosErrores.fotos = 'Espera a que termine la validación de las fotografías.'
     }
-    setErrores(nuevosErrores)
-    return Object.keys(nuevosErrores).length === 0
+    return nuevosErrores
   }
 
   const avanzar = () => {
-    if (validarPaso(paso)) {
+    const nuevosErrores = erroresDePaso(paso)
+    setErrores(nuevosErrores)
+    if (Object.keys(nuevosErrores).length === 0) {
       setPaso((actual) => Math.min(actual + 1, pasos.length - 1))
-      setErrores({})
       setConfirmado(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -445,16 +448,40 @@ export default function Reportar() {
     }`
   )
 
+  const iniciarNuevoReporte = () => {
+    fotos.forEach(foto => URL.revokeObjectURL(foto.url))
+    setFotos([])
+    setErroresFoto([])
+    setFotoParaReemplazar(null)
+    setForm(FORM_INICIAL)
+    setBusqueda('')
+    setUbicacionGps(null)
+    setErrorGps('')
+    setResultado(null)
+    setConfirmado(false)
+    setErrores({})
+    setPaso(0)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const enviarReporte = async () => {
-    const pasoValidacion = form.tipo_escenario === 'existente' ? 2 : 0
-    if (!confirmado || !validarPaso(pasoValidacion)) {
-      setErrores((actuales) => ({
-        ...actuales,
-        confirmacion: !confirmado ? 'Confirma que revisaste la información.' : '',
-        id_escenario: form.tipo_escenario !== 'existente' ? '' : actuales.id_escenario
-      }))
+    if (enviando || enviado) return
+    if (!confirmado) {
+      setErrores({ confirmacion: 'Confirma que revisaste la información.' })
       return
     }
+
+    for (let indice = 0; indice < pasos.length - 1; indice += 1) {
+      const nuevosErrores = erroresDePaso(indice)
+      if (Object.keys(nuevosErrores).length) {
+        setErrores(nuevosErrores)
+        setConfirmado(false)
+        setPaso(indice)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+    }
+    setErrores({})
 
     setEnviando(true)
     setResultado(null)
@@ -491,6 +518,9 @@ export default function Reportar() {
           longitud: ubicacionGps?.longitud ?? null
         })
       }
+      if (response.data?.success !== true) {
+        throw new Error('El servidor no confirmó el envío.')
+      }
       setResultado(response.data)
     } catch (error) {
       setResultado({ error: error.response?.data?.message || error.message || 'No se pudo enviar la información.' })
@@ -524,7 +554,7 @@ export default function Reportar() {
                 <button
                   type="button"
                   onClick={() => index < paso && setPaso(index)}
-                  disabled={index >= paso}
+                  disabled={index >= paso || enviando || enviado}
                   aria-current={index === paso ? 'step' : undefined}
                   className={`flex w-full items-center gap-2 text-left ${index < paso ? 'cursor-pointer' : 'cursor-default'}`}
                 >
@@ -842,7 +872,7 @@ export default function Reportar() {
                 <h2 className="mt-2 text-2xl font-bold text-white">
                   {form.tipo_escenario === 'existente' ? 'Revisa tu reporte' : 'Revisa tu propuesta'}
                 </h2>
-                <p className="mt-2 text-sm text-slate-400">Puedes volver a una etapa anterior para corregir cualquier dato antes de que el envío esté disponible.</p>
+                <p className="mt-2 text-sm text-slate-400">Antes de enviar, puedes volver a una etapa anterior para corregir los datos.</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -880,7 +910,10 @@ export default function Reportar() {
               </div>
 
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-950/50 p-4 text-sm leading-6 text-slate-300">
-                <input type="checkbox" checked={confirmado} onChange={(event) => setConfirmado(event.target.checked)} className="mt-1 h-4 w-4 accent-cyan-300" />
+                <input type="checkbox" checked={confirmado} disabled={enviando || enviado} onChange={(event) => {
+                  setConfirmado(event.target.checked)
+                  setErrores({})
+                }} className="mt-1 h-4 w-4 accent-cyan-300" />
                 <span>Confirmo que revisé la información presentada y que corresponde a mi observación.</span>
               </label>
 
@@ -899,14 +932,20 @@ export default function Reportar() {
                       : <p className="mt-1 text-sm">Tu propuesta quedó registrada para revisión del CMJ.</p>}
                 </div>
               )}
-              <button type="button" onClick={enviarReporte} disabled={enviando || Boolean(resultado && !resultado.error)} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3.5 font-bold text-slate-950 disabled:opacity-50">
-                {enviando ? 'Enviando…' : form.tipo_escenario === 'existente' ? 'Enviar reporte' : 'Enviar propuesta'}
-              </button>
+              {enviado ? (
+                <button type="button" onClick={iniciarNuevoReporte} className="offer-button offer-button-primary w-full">
+                  Iniciar otro reporte
+                </button>
+              ) : (
+                <button type="button" onClick={enviarReporte} disabled={enviando} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3.5 font-bold text-slate-950 disabled:opacity-50">
+                  {enviando ? 'Enviando…' : form.tipo_escenario === 'existente' ? 'Enviar reporte' : 'Enviar propuesta'}
+                </button>
+              )}
             </div>
           )}
 
           <div className="mt-8 flex flex-col-reverse gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:justify-between">
-            <button type="button" onClick={volver} disabled={paso === 0} className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-800 disabled:invisible">
+            <button type="button" onClick={volver} disabled={paso === 0 || enviando || enviado} className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-800 disabled:invisible">
               Volver
             </button>
             {paso < pasos.length - 1 && (
