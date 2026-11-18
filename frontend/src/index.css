@@ -3318,9 +3318,7 @@ body.auth-modal-open {
   top: 22px;
   right: 22px;
   width: 92px;
-  height: 74px;
   border-radius: 10px;
-  object-fit: cover;
 }
 
 .home-offer-section .home-discipline-card > .home-discipline-icon {
@@ -3859,10 +3857,20 @@ body.auth-modal-open {
 }
 
 .home-hero-art {
-  display: block;
+  display: grid;
   min-width: 0;
-  min-height: 430px;
-  padding: 8px 8px 38px 28px;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: 12px;
+  padding: 0;
+}
+
+.home-photo-tile {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
 }
 
 .home-hero-photo,
@@ -3876,7 +3884,7 @@ body.auth-modal-open {
 }
 
 .home-hero-photo {
-  height: 390px;
+  width: 100%;
   border-radius: 20px 20px 72px 20px;
 }
 
@@ -3886,18 +3894,6 @@ body.auth-modal-open {
   inset: 30% 0 0;
   background: linear-gradient(transparent, rgb(10 27 21 / 78%));
   content: "";
-}
-
-.home-hero-photo img,
-.home-culture-photo img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.home-hero-photo img {
-  object-position: center;
 }
 
 .home-hero-photo figcaption {
@@ -3925,11 +3921,8 @@ body.auth-modal-open {
 }
 
 .home-culture-photo {
-  position: absolute;
-  right: -2px;
-  bottom: 0;
-  width: 42%;
-  height: 164px;
+  width: min(58%, 280px);
+  justify-self: end;
   border: 5px solid var(--color-primary);
   border-radius: 15px;
   box-shadow: 0 16px 38px rgb(9 29 22 / 28%);
@@ -4183,20 +4176,6 @@ body.auth-modal-open {
     grid-template-columns: minmax(0, 1fr) minmax(0, .9fr);
   }
 
-  .home-hero-art {
-    min-height: 350px;
-    padding-left: 12px;
-  }
-
-  .home-hero-photo {
-    height: 310px;
-  }
-
-  .home-culture-photo {
-    width: 48%;
-    height: 130px;
-  }
-
   .home-community-note {
     right: 24px;
   }
@@ -4233,13 +4212,10 @@ body.auth-modal-open {
   }
 
   .home-hero-art {
-    min-height: 300px;
     margin-top: 8px;
-    padding: 4px 5px 26px 5px;
   }
 
   .home-hero-photo {
-    height: 265px;
     border-radius: 16px 16px 48px 16px;
   }
 
@@ -4250,9 +4226,7 @@ body.auth-modal-open {
   }
 
   .home-culture-photo {
-    right: 0;
-    width: 43%;
-    height: 116px;
+    width: min(68%, 240px);
     border-width: 4px;
   }
 
@@ -4827,7 +4801,6 @@ body.auth-modal-open {
     top: 18px;
     right: 18px;
     width: 82px;
-    height: 68px;
   }
 
   .home-offer-section .home-discipline-card {
@@ -4899,11 +4872,6 @@ body.auth-modal-open {
   line-height: 1.5;
 }
 
-.home-community-photo-icon {
-  color: var(--color-accent);
-  stroke-width: 1.5;
-}
-
 .home-community-visual {
   min-width: 0;
   overflow: hidden;
@@ -4912,39 +4880,6 @@ body.auth-modal-open {
   border-radius: 18px;
   background: var(--color-surface);
   box-shadow: 0 14px 34px rgb(23 63 53 / 8%);
-}
-
-.home-community-photo-pending {
-  display: flex;
-  min-height: 290px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  padding: 32px;
-  color: var(--color-text-secondary);
-  background:
-    radial-gradient(ellipse at 50% 20%, #fff, transparent 70%),
-    var(--color-soft);
-  text-align: center;
-  gap: 13px;
-}
-
-.home-community-photo-icon {
-  width: 38px;
-  height: 38px;
-}
-
-.home-community-photo-pending strong {
-  max-width: 410px;
-  color: var(--color-primary);
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.home-community-photo-pending > span {
-  max-width: 320px;
-  font-size: 12px;
-  line-height: 1.6;
 }
 
 .home-community-visual figcaption {
@@ -4956,11 +4891,6 @@ body.auth-modal-open {
 }
 
 @media (max-width: 600px) {
-  .home-community-photo-pending {
-    min-height: 210px;
-    padding: 24px;
-  }
-
   .home-footer-links {
     grid-column: auto;
   }

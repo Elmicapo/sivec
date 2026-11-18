@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import RutaProtegida from './components/RutaProtegida';
@@ -85,6 +85,17 @@ function App() {
         <Route path="/entrenador/solicitudes" element={<RutaProtegida roles={['ENTRENADOR']}><MisSolicitudesEntrenador /></RutaProtegida>} />
         <Route path="/deportista" element={<RutaProtegida roles={['DEPORTISTA']}><MiHistorial /></RutaProtegida>} />
         <Route path="/cmj" element={<RutaProtegida roles={['CMJ']}><PanelCMJ /></RutaProtegida>} />
+        <Route path="*" element={
+          <main className="offer-page">
+            <section className="offer-container offer-container-narrow offer-filter-panel">
+              <header className="offer-page-heading">
+                <h1>Página no encontrada</h1>
+                <p>Revisa la dirección o vuelve al inicio de SIVEC.</p>
+              </header>
+              <Link to="/" className="offer-button offer-button-primary">Volver a Inicio</Link>
+            </section>
+          </main>
+        } />
       </Routes>
       
       {authMode && <AuthModal mode={authMode} />}

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { getEscenarios, getDisciplinasActivas } from '../services/deportesService'
 import { getAgenda } from '../services/entrenadoresService'
 import escenariosIlustrativos from '../assets/escenarios-ilustrativos.webp'
+import actividadesIlustrativas from '../assets/actividades-ilustrativas.webp'
 
 const FOTO_ESTADIO = 'https://indeportesantioquia.gov.co/wp-content/uploads/2022/10/Estadio-y-ciudad-de-Apartado.jpeg'
 const [fotoLocal] = Object.values(import.meta.glob('../assets/estadio-apartado.{jpg,jpeg,png,webp}', {
@@ -19,22 +20,19 @@ const ESTADOS = [
 ]
 
 const FOTOS_DISCIPLINA = {
-  futbol: {
-    src: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=900&q=82',
-    alt: 'Balón sobre una cancha de fútbol, imagen ilustrativa de fútbol'
-  },
-  natacion: {
-    src: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=900&q=82',
-    alt: 'Nadador en una piscina, imagen ilustrativa de natación'
-  },
-  danza: {
-    src: 'https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=900&q=82',
-    alt: 'Bailarina en movimiento, imagen ilustrativa de danza'
-  },
-  referencia: {
-    src: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=82',
-    alt: 'Persona realizando actividad física, imagen ilustrativa'
-  }
+  futbol: { posicion: '0% 0%', alt: 'Entrenamiento de fútbol al aire libre' },
+  danza: { posicion: '100% 0%', alt: 'Ensayo de danza folclórica' },
+  natacion: { posicion: '0% 100%', alt: 'Entrenamiento en una piscina deportiva' },
+  referencia: { posicion: '100% 100%', alt: 'Actividad física comunitaria en un parque' }
+}
+
+function FotoIlustrativa({ foto, className = '' }) {
+  return <div
+    role="img"
+    aria-label={`${foto.alt}, imagen ilustrativa`}
+    className={`home-photo-tile ${className}`}
+    style={{ backgroundImage: `url(${actividadesIlustrativas})`, backgroundPosition: foto.posicion }}
+  />
 }
 
 const ICONOS = {
@@ -69,13 +67,7 @@ const ICONOS = {
       <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
     </>
   ),
-  fotografia: (
-    <>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <path d="m21 15-5-5L5 21" />
-    </>
-  ),
+
 }
 
 function Icono({ nombre, className = '' }) {
@@ -174,7 +166,7 @@ function TarjetaDisciplina({ disciplina }) {
 
   return (
     <article className="home-discipline-card">
-      <img alt={foto.alt} className="home-discipline-photo" loading="lazy" src={foto.src} />
+      <FotoIlustrativa foto={foto} className="home-discipline-photo" />
       <span className={`home-discipline-icon ${disciplina.categoria === 'CULTURAL' ? 'home-discipline-icon-culture' : ''}`}>
         <Icono nombre="comunidad" />
       </span>
@@ -311,22 +303,14 @@ export default function Escenarios() {
 
           <div className="home-hero-art">
             <figure className="home-hero-photo">
-              <img
-                alt="Personas jugando fútbol en una cancha al aire libre"
-                fetchPriority="high"
-                src="https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1400&q=85"
-              />
+              <FotoIlustrativa foto={FOTOS_DISCIPLINA.futbol} />
               <figcaption>
                 <span>Espacios para encontrarnos</span>
                 <strong>Una comunidad en movimiento</strong>
               </figcaption>
             </figure>
             <figure className="home-culture-photo">
-              <img
-                alt="Presentación artística en un escenario cultural"
-                loading="lazy"
-                src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=700&q=80"
-              />
+              <FotoIlustrativa foto={FOTOS_DISCIPLINA.danza} />
               <figcaption>La cultura también nos une</figcaption>
             </figure>
           </div>
@@ -494,10 +478,12 @@ export default function Escenarios() {
         <div className="home-community-inner">
           <figure className="home-community-visual">
             {errorFotoEstadio ? (
-              <div className="home-community-photo-pending">
-                <Icono className="home-community-photo-icon" nombre="fotografia" />
-                <strong>La fotografía no pudo cargarse.</strong>
-              </div>
+              <div
+                role="img"
+                aria-label="Cancha de fútbol con pista, imagen ilustrativa"
+                className="home-photo-tile"
+                style={{ backgroundImage: `url(${escenariosIlustrativos})`, backgroundPosition: '0% 0%' }}
+              />
             ) : (
               <img
                 alt="Vista aérea del estadio de Apartadó, con la cancha, la pista y la ciudad al fondo"
@@ -511,7 +497,7 @@ export default function Escenarios() {
               />
             )}
             <figcaption>
-              Estadio y ciudad de Apartadó · <a href={FOTO_ESTADIO} target="_blank" rel="noreferrer">Indeportes Antioquia</a>
+              {errorFotoEstadio ? 'Imagen ilustrativa · Fotografía original: ' : 'Estadio y ciudad de Apartadó · '}<a href={FOTO_ESTADIO} target="_blank" rel="noreferrer">Indeportes Antioquia</a>
             </figcaption>
           </figure>
 
