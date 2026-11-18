@@ -4,20 +4,20 @@ import { listarSolicitudesVinculacion, resolverSolicitudVinculacion } from '../s
 const SolicitudesEntrenadores = () => {
     const [solicitudes, setSolicitudes] = useState([]);
     const [cargando, setCargando] = useState(true);
-    const [mensaje, setMensaje] = useState('');
+    const [mensaje, setMensaje] = useState(null);
     const [resolviendo, setResolviendo] = useState(false);
     const [errorCarga, setErrorCarga] = useState(false);
 
     const cargarSolicitudes = async () => {
         try {
             setCargando(true);
-            setMensaje('');
+            setMensaje(null);
             setErrorCarga(false);
             const respuesta = await listarSolicitudesVinculacion();
             setSolicitudes(respuesta.data.data || []);
         } catch (error) {
             setErrorCarga(true);
-            setMensaje(error.response?.data?.message || 'No se pudieron cargar las solicitudes.');
+            setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudieron cargar las solicitudes.' });
         } finally {
             setCargando(false);
         }
@@ -25,12 +25,13 @@ const SolicitudesEntrenadores = () => {
 
     const resolver = async (id, estado) => {
         setResolviendo(true);
-        setMensaje('');
+        setMensaje(null);
         try {
-            await resolverSolicitudVinculacion(id, estado);
+            const { data } = await resolverSolicitudVinculacion(id, estado);
             setSolicitudes(actuales => actuales.filter(sol => sol.id_solicitud_vinculacion !== id));
+            setMensaje({ tipo: 'success', texto: data.message });
         } catch (error) {
-            setMensaje(error.response?.data?.message || 'No se pudo resolver la solicitud.');
+            setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo resolver la solicitud.' });
         } finally {
             setResolviendo(false);
         }
@@ -41,93 +42,79 @@ const SolicitudesEntrenadores = () => {
     }, []);
 
     return (
-        <div className="offer-page">
-            <div className="offer-container">
-                
-                {/* Encabezado con contraste corregido */}
-                <div className="offer-page-heading flex justify-between items-end mb-6">
-                    <div>
-                        <span className="offer-eyebrow" style={{ color: 'var(--color-secondary)' }}>
-                            GESTIÓN DE ENTRENADORES
-                        </span>
-                        <h1 style={{ color: 'var(--color-primary)' }}>
-                            Solicitudes de vinculación
-                        </h1>
-                        <p style={{ color: 'var(--color-text-secondary)' }}>
-                            Revisa las solicitudes antes de habilitar una vinculación con la disciplina.
-                        </p>
-                    </div>
-                    <button 
-                        onClick={cargarSolicitudes}
-                        disabled={cargando || resolviendo}
-                        className="sivec-button sivec-button-secondary"
-                    >
-                        Actualizar
-                    </button>
-                </div>
+        <div className="offer-page min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+                <header className="offer-page-heading mb-6">
+                    <span className="block mb-2 text-sm font-semibold uppercase tracking-wide text-green-700">
+                        Gestión de entrenadores
+                    </span>
+                    <h1>Solicitudes de vinculación</h1>
+                    <p>Revisa las solicitudes de los entrenadores para vincularse a una disciplina.</p>
+                </header>
 
-                {/* Alertas con contraste legible */}
-                {mensaje && (
-                    <div className="sivec-alert sivec-alert-error mb-6" role="status">
-                        {mensaje}
-                    </div>
-                )}
+                <section aria-labelledby="solicitudes-pendientes" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+                        <h2 id="solicitudes-pendientes" className="text-lg font-semibold text-gray-800">Solicitudes pendientes</h2>
+                        <button type="button" onClick={cargarSolicitudes} disabled={cargando || resolviendo} className="offer-button offer-button-secondary">
+                            Actualizar
+                        </button>
+                    </header>
 
-                {/* Tarjeta y Tabla */}
-                {!errorCarga && <div className="sivec-card p-0 overflow-hidden">
-                    {cargando ? (
-                        <p className="p-6 text-center" style={{ color: 'var(--color-text-secondary)' }}>
-                            Cargando solicitudes...
+                    {mensaje && (
+                        <p className={`sivec-alert sivec-alert-${mensaje.tipo} m-6`} role={mensaje.tipo === 'error' ? 'alert' : 'status'}>
+                            {mensaje.texto}
                         </p>
-                    ) : solicitudes.length === 0 ? (
-                        <div className="p-8 text-center font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                            No hay solicitudes pendientes.
-                        </div>
-                    ) : (
-                        <div className="sivec-table-container border-none">
-                            <table className="sivec-table">
-                                <thead>
-                                    <tr>
-                                        <th>Entrenador</th>
-                                        <th>Correo / ID</th>
-                                        <th>Disciplina</th>
-                                        <th>Fecha Solicitud</th>
-                                        <th className="text-center">Estado</th>
-                                        <th className="text-center">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {solicitudes.map((sol) => (
-                                        <tr key={sol.id_solicitud_vinculacion}>
-                                            <td className="font-semibold">{sol.nombre_completo}</td>
-                                            <td>{sol.correo_electronico}</td>
-                                            <td>{sol.disciplina}</td>
-                                            <td>{sol.fecha_solicitud}</td>
-                                            <td className="text-center">
-                                                <span className={`sivec-status sivec-status-${sol.estado === 'APROBADO' ? 'green' : 'yellow'}`}>
-                                                    {sol.estado || 'PENDIENTE'}
-                                                </span>
-                                            </td>
-                                            <td className="text-center">
-                                                <button className="sivec-button sivec-button-primary text-xs h-8"
-                                                    disabled={resolviendo || cargando}
-                                                    onClick={() => resolver(sol.id_solicitud_vinculacion, 'APROBADA')}>
-                                                    Aprobar
-                                                </button>
-                                                <button className="sivec-button sivec-button-secondary text-xs h-8"
-                                                    disabled={resolviendo || cargando}
-                                                    onClick={() => resolver(sol.id_solicitud_vinculacion, 'RECHAZADA')}>
-                                                    Rechazar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
                     )}
-                </div>}
 
+                    {!errorCarga && (
+                        cargando || solicitudes.length === 0 ? (
+                            <p className="p-6 text-center text-sm text-gray-600" role="status">
+                                {cargando ? 'Cargando solicitudes…' : 'No hay solicitudes pendientes.'}
+                            </p>
+                        ) : (
+                            <div className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2" role="region" aria-label="Tabla de solicitudes pendientes" tabIndex={0}>
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+                                        <tr>
+                                            <th scope="col" className="px-6 py-3 font-medium">Entrenador</th>
+                                            <th scope="col" className="px-6 py-3 font-medium">Disciplina</th>
+                                            <th scope="col" className="px-6 py-3 font-medium whitespace-nowrap">Fecha de solicitud</th>
+                                            <th scope="col" className="px-6 py-3 font-medium text-right">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm divide-y divide-gray-100">
+                                        {solicitudes.map(sol => (
+                                            <tr key={sol.id_solicitud_vinculacion} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4">
+                                                    <div className="font-semibold text-gray-900">{sol.nombre_completo}</div>
+                                                    {sol.correo_electronico && <div className="text-xs text-gray-600 mt-1">{sol.correo_electronico}</div>}
+                                                </td>
+                                                <td className="px-6 py-4 font-medium text-gray-700">{sol.disciplina}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-gray-600">{sol.fecha_solicitud}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex justify-end gap-2">
+                                                        <button type="button" className="offer-button offer-button-primary"
+                                                            disabled={resolviendo}
+                                                            aria-label={`Aprobar solicitud de ${sol.nombre_completo} para ${sol.disciplina}`}
+                                                            onClick={() => resolver(sol.id_solicitud_vinculacion, 'APROBADA')}>
+                                                            Aprobar
+                                                        </button>
+                                                        <button type="button" className="offer-button offer-button-secondary"
+                                                            disabled={resolviendo}
+                                                            aria-label={`Rechazar solicitud de ${sol.nombre_completo} para ${sol.disciplina}`}
+                                                            onClick={() => resolver(sol.id_solicitud_vinculacion, 'RECHAZADA')}>
+                                                            Rechazar
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )
+                    )}
+                </section>
             </div>
         </div>
     );
