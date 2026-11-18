@@ -55,3 +55,7 @@ logs/
 .Trashes
 ehthumbs.db
 Thumbs.db
+# Evidencias privadas y respaldos locales con datos
+/BACKEND/storage/private/
+/backups/
+/db_sistema_deportivo_cultural.sql

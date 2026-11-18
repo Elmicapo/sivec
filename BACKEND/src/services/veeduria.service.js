@@ -139,14 +139,14 @@ const createVeeduriaService = (pool) => {
         });
     };
 
-    const withTransaction = async (operation) => {
+    const withTransaction = async (operation, assertSchema = assertMigrationsApplied) => {
         const connection = await pool.getConnection();
         let started = false;
 
         try {
             await connection.beginTransaction();
             started = true;
-            await assertMigrationsApplied(connection);
+            await assertSchema(connection);
             const result = await operation(connection);
             await connection.commit();
             return result;
@@ -188,7 +188,6 @@ const createVeeduriaService = (pool) => {
     return {
         async crearSolicitudEscenario(datos) {
             return withTransaction(async (connection) => {
-                await assertScenarioMigrationsApplied(connection);
                 const [disciplinas] = await connection.query(
                     'SELECT id_disciplina FROM disciplina WHERE id_disciplina = ? AND estado = ?',
                     [datos.id_disciplina, 'ACTIVA']
@@ -217,7 +216,7 @@ const createVeeduriaService = (pool) => {
                     [result.insertId, fechaUtc]
                 );
                 return { id_solicitud_escenario: result.insertId, estado_revision: 'PENDIENTE' };
-            });
+            }, assertScenarioMigrationsApplied);
         },
 
         async obtenerSolicitudesEscenarioPendientes() {
@@ -237,7 +236,6 @@ const createVeeduriaService = (pool) => {
 
         async resolverSolicitudEscenario({ idSolicitud, estado, idCmj, observacion }) {
             return withTransaction(async (connection) => {
-                await assertScenarioMigrationsApplied(connection);
                 await assertCmj(connection, idCmj);
                 const [solicitudes] = await connection.query(
                     `SELECT s.*, d.nombre AS disciplina
@@ -297,7 +295,7 @@ const createVeeduriaService = (pool) => {
                     [idSolicitud, estado, idCmj, observacion, fechaUtc]
                 );
                 return { id_solicitud_escenario: idSolicitud, estado_revision: estado, id_escenario: idEscenario };
-            });
+            }, assertScenarioMigrationsApplied);
         },
 
         async crearReporte(datos) {

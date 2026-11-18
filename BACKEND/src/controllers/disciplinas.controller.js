@@ -97,16 +97,21 @@ const buscarDisciplinas = async (req, res) => {
 };
 
 
+const esCupoValido = valor =>
+    (typeof valor === 'number' || typeof valor === 'string')
+    && Number.isInteger(Number(valor)) && Number(valor) > 0 && Number(valor) <= 2147483647;
+
 const crearDisciplina = async (req, res) => {
     const { nombre, categoria, poblacion_objetivo, cupo_maximo } = req.body;
-    if (!nombre || !['DEPORTIVA', 'CULTURAL'].includes(categoria) || !(cupo_maximo > 0)) {
+    if (typeof nombre !== 'string' || !nombre.trim() || !['DEPORTIVA', 'CULTURAL'].includes(categoria)
+        || !esCupoValido(cupo_maximo)) {
         return res.status(400).json({ success: false, message: 'Nombre, categoría (DEPORTIVA/CULTURAL) y cupo mayor a 0 son obligatorios' });
     }
     try {
         await assertSchemaObjectsAvailable(db, ['disciplina']);
         const [r] = await db.query(
             'INSERT INTO disciplina (nombre, categoria, poblacion_objetivo, cupo_maximo) VALUES (?, ?, ?, ?)',
-            [nombre, categoria, poblacion_objetivo || null, cupo_maximo]);
+            [nombre.trim(), categoria, poblacion_objetivo || null, Number(cupo_maximo)]);
         res.status(201).json({ success: true, message: 'Disciplina creada', id_disciplina: r.insertId });
     } catch (error) {
         if (responderEsquemaNoDisponible(res, error, 'El módulo de disciplinas aún no está habilitado.')) return;
@@ -120,6 +125,12 @@ const crearDisciplina = async (req, res) => {
 const actualizarDisciplina = async (req, res) => {
     const { id } = req.params;
     const { nombre, categoria, poblacion_objetivo, cupo_maximo } = req.body;
+    if (cupo_maximo != null && !esCupoValido(cupo_maximo)) {
+        return res.status(400).json({ success: false, message: 'El cupo debe ser un entero mayor que cero.' });
+    }
+    if (nombre != null && (typeof nombre !== 'string' || !nombre.trim())) {
+        return res.status(400).json({ success: false, message: 'El nombre de la disciplina es obligatorio.' });
+    }
     if (categoria && !['DEPORTIVA', 'CULTURAL'].includes(categoria)) {
         return res.status(400).json({ success: false, message: 'Categoría inválida' });
     }
@@ -134,9 +145,10 @@ const actualizarDisciplina = async (req, res) => {
         }
         const [r] = await db.query(
             `UPDATE disciplina SET nombre = COALESCE(?, nombre), categoria = COALESCE(?, categoria),
-                    poblacion_objetivo = COALESCE(?, poblacion_objetivo), cupo_maximo = COALESCE(?, cupo_maximo)
+                    poblacion_objetivo = IF(?, ?, poblacion_objetivo), cupo_maximo = COALESCE(?, cupo_maximo)
              WHERE id_disciplina = ?`,
-            [nombre || null, categoria || null, poblacion_objetivo || null, cupo_maximo || null, id]);
+            [nombre?.trim() || null, categoria || null, poblacion_objetivo !== undefined,
+                poblacion_objetivo || null, cupo_maximo == null ? null : Number(cupo_maximo), id]);
         if (r.affectedRows === 0) {
             return res.status(404).json({ success: false, message: 'Disciplina no encontrada' });
         }
