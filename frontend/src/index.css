@@ -4873,35 +4873,35 @@ body.auth-modal-open {
   }
 }
 
-.home-venue-photo-pending {
-  display: flex;
-  min-height: 122px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  padding: 18px;
-  border: 1px dashed #b9c9c0;
+.home-venue-visual {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
   border-radius: 12px;
-  color: var(--color-text-secondary);
-  background:
-    linear-gradient(135deg, rgb(229 239 234 / 74%), rgb(245 247 245 / 92%));
-  text-align: center;
-  gap: 9px;
+  background: var(--color-soft);
 }
 
-.home-venue-photo-icon,
+.home-venue-image {
+  aspect-ratio: 3 / 2;
+  background-repeat: no-repeat;
+  background-size: 200% 200%;
+}
+
+.home-venue-visual figcaption {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: #fff;
+  background: rgb(12 32 28 / 88%);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .home-community-photo-icon {
-  width: 26px;
-  height: 26px;
   color: var(--color-accent);
   stroke-width: 1.5;
-}
-
-.home-venue-photo-pending span {
-  max-width: 230px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.5;
 }
 
 .home-community-visual {

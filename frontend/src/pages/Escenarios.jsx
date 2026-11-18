@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getEscenarios, getDisciplinasActivas } from '../services/deportesService'
 import { getAgenda } from '../services/entrenadoresService'
+import escenariosIlustrativos from '../assets/escenarios-ilustrativos.webp'
 
 const FOTO_ESTADIO = 'https://indeportesantioquia.gov.co/wp-content/uploads/2022/10/Estadio-y-ciudad-de-Apartado.jpeg'
 const [fotoLocal] = Object.values(import.meta.glob('../assets/estadio-apartado.{jpg,jpeg,png,webp}', {
@@ -115,19 +116,29 @@ function EstadoVacio({ titulo, detalle, accion }) {
   )
 }
 
+function imagenDeEscenario({ tipo, nombre }) {
+  const texto = `${tipo || ''} ${nombre || ''}`.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  if (/piscina|acuatic|natacion/.test(texto)) return { posicion: '100% 100%', alt: 'Piscina deportiva' }
+  if (/coliseo|cubierta|techad/.test(texto)) return { posicion: '100% 0%', alt: 'Cancha polideportiva cubierta' }
+  if (/estadio|futbol/.test(texto)) return { posicion: '0% 0%', alt: 'Cancha de fútbol con pista' }
+  return { posicion: '0% 100%', alt: 'Cancha deportiva al aire libre' }
+}
+
 function TarjetaEscenario({ escenario }) {
   const codigo = escenario.estado_semaforo
+  const imagen = imagenDeEscenario(escenario)
 
   return (
     <article className="home-venue-card">
-      <div
-        aria-label={`Fotografía actual pendiente de actualización para ${escenario.nombre}`}
-        className="home-venue-photo-pending"
-        role="img"
-      >
-        <Icono className="home-venue-photo-icon" nombre="fotografia" />
-        <span>Fotografía actual pendiente de actualización</span>
-      </div>
+      <figure className="home-venue-visual">
+        <div
+          aria-label={`${imagen.alt}, imagen ilustrativa`}
+          className="home-venue-image"
+          role="img"
+          style={{ backgroundImage: `url(${escenariosIlustrativos})`, backgroundPosition: imagen.posicion }}
+        />
+        <figcaption>Imagen ilustrativa</figcaption>
+      </figure>
       <div className="home-venue-card-top">
         <span className={`home-status-pill home-status-${codigo?.toLowerCase() || 'unknown'}`}>
           <span className="home-status-dot" />
