@@ -1,17 +1,34 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { miHistorial } from '../services/disciplinasService'
+import { borrarHistorialSesion, guardarHistorialSesion, leerHistorialSesion } from '../services/historialSesion'
 
 export default function MiHistorial() {
-  const [historial, setHistorial] = useState([])
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState('')
+  const { usuario } = useAuth()
+  const idPersona = usuario?.id_persona
+  const [consulta, setConsulta] = useState(null)
 
   useEffect(() => {
+    let activa = true
     miHistorial()
-      .then((res) => setHistorial(res.data.data))
-      .catch(() => setError('No se pudo cargar tu historial'))
-      .finally(() => setCargando(false))
-  }, [])
+      .then(({ data }) => {
+        if (!activa) return
+        guardarHistorialSesion(idPersona, data.data)
+        setConsulta({ idPersona, historial: data.data })
+      })
+      .catch(error => {
+        if (!activa) return
+        if ([401, 403].includes(error.response?.status)) borrarHistorialSesion()
+        const guardado = error.response ? null : leerHistorialSesion(idPersona)
+        setConsulta(guardado
+          ? { idPersona, historial: guardado.filas, guardadoEl: guardado.fecha }
+          : { idPersona, error: navigator.onLine ? 'No se pudo cargar tu historial.' : 'Tu sesión aún no tiene un historial guardado. Conéctate para consultarlo.' })
+      })
+    return () => { activa = false }
+  }, [idPersona])
+
+  const actual = consulta?.idPersona === idPersona ? consulta : null
+  const historial = actual?.historial
 
   return (
     <main className="offer-page">
@@ -22,10 +39,13 @@ export default function MiHistorial() {
           <p>Consulta las solicitudes registradas para las disciplinas.</p>
         </header>
 
-        {cargando && <div className="offer-state" role="status">Cargando historial…</div>}
-        {error && <div className="offer-state offer-state-error" role="alert">{error}</div>}
+        {!actual && <div className="offer-state" role="status">Cargando historial…</div>}
+        {actual?.error && <div className="offer-state offer-state-error" role="alert">{actual.error}</div>}
+        {actual?.guardadoEl && <p className="sivec-alert sivec-alert-info mb-4" role="status">
+          Historial guardado en esta sesión el {new Date(actual.guardadoEl).toLocaleString('es-CO')}.
+        </p>}
 
-        {!cargando && !error && (
+        {historial && (
           <div className="agenda-table-shell">
             <p className="agenda-scroll-hint">Desliza horizontalmente para consultar todas las columnas.</p>
             <div aria-label="Historial de inscripciones" className="agenda-table-scroll" role="region" tabIndex={0}>

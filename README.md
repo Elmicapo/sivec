@@ -33,3 +33,15 @@ Usa cuentas de demostración distintas para cada rol y un perfil CMJ en el esque
 Desde `frontend`, `npm run build` verifica la compilación y `npm run lint` revisa el código. Las pruebas de integración con MySQL requieren la copia aislada documentada en [Migraciones](BACKEND/migrations/README.md).
 
 [Documentación del proyecto](docs/README.md)
+
+## PWA y despliegue en Railway
+
+La compilación genera el manifiesto, los iconos y el *service worker* de SIVEC. En un sitio HTTPS, el navegador puede instalarlo como aplicación. Tras una primera visita en línea, puedes abrir la interfaz sin conexión. El *service worker* también guarda hasta 60 consultas públicas recientes de disciplinas, escenarios y cronogramas durante un máximo de siete días. Se intenta obtener la versión de la red primero. Cada filtro solo está disponible sin conexión si se consultó antes.
+
+El deportista puede leer su último historial visto durante la misma sesión del navegador. Se guarda por cuenta en `sessionStorage` y se borra al cerrar sesión o al iniciar otra. Las evidencias, el seguimiento de reportes y los datos privados del CMJ están fuera de la caché. Se necesita conexión para autenticarse, consultar información que no esté guardada, inscribirse, reportar u oficializar cambios.
+
+1. En Railway, crea un proyecto con un servicio MySQL 8 y otro para la aplicación. Conecta el servicio de la aplicación al repositorio y selecciona la rama de entrega. El `Dockerfile` raíz compila el frontend y lo sirve desde Express en el mismo dominio que `/api`. Railway puede verificar el proceso en `/api/health`.
+2. En el servicio de aplicación, configura `DB_HOST` con el host privado de MySQL, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` y un `JWT_SECRET` generado para ese entorno. Configura las credenciales en Railway. Usa una copia de demostración aislada y un usuario de aplicación con los permisos necesarios sobre ese esquema.
+3. Restaura un respaldo base autorizado con datos ficticios. Desde un proceso con acceso al MySQL privado, verifica o aplica las migraciones de la copia siguiendo la [guía](BACKEND/migrations/README.md). Usa una cuenta de migración separada si la cuenta de aplicación carece de permisos DDL.
+4. Monta un volumen persistente para las evidencias en `/app/data`. Verifica que el usuario del contenedor pueda escribir en el volumen. El Dockerfile usa el usuario `node` (UID 1000) y define `VEEDURIA_STORAGE_DIR=/app/data`.
+5. Genera un dominio HTTPS para la aplicación. Abre Inicio y una ruta directa, como `/seguimiento`. Instala SIVEC desde el menú del navegador, comprueba que abra sin conexión después de la primera carga y vuelve a conectar para ejecutar los recorridos de entrega. Reinicia el servicio y comprueba que las fotos ya guardadas sigan disponibles.

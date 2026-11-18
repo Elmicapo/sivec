@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { Routes, Route, useLocation, Navigate, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
@@ -36,8 +37,20 @@ const RutaAdministrativa = ({ children }) => {
     return children;
 };
 
+function suscribirConexion(actualizar) {
+  window.addEventListener('online', actualizar);
+  window.addEventListener('offline', actualizar);
+  return () => {
+    window.removeEventListener('online', actualizar);
+    window.removeEventListener('offline', actualizar);
+  };
+}
+
+const leerConexion = () => navigator.onLine;
+
 function App() {
   const location = useLocation();
+  const conectado = useSyncExternalStore(suscribirConexion, leerConexion);
   const authMode = location.pathname === '/registro'
     ? 'registro'
     : location.pathname === '/login'
@@ -52,6 +65,11 @@ function App() {
     <>
       <ScrollToTop />
       <Navbar />
+      {!conectado && (
+        <p role="status" className="sivec-alert sivec-alert-info">
+          Estás sin conexión. Puedes ver las consultas guardadas, que pueden estar desactualizadas. Conéctate para consultar datos nuevos o enviar información.
+        </p>
+      )}
       <Routes location={backgroundLocation}>
         {/* Vistas Públicas */}
         <Route path="/" element={<Escenarios />} />
