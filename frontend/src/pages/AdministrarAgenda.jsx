@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import API from '../services/api';
 
 const AdministrarAgenda = () => {
     // 1. Estado inicializado de forma segura
@@ -18,12 +18,8 @@ const AdministrarAgenda = () => {
     const cargarAgenda = async () => {
         try {
             setCargando(true);
-            // Si usas un token de autenticación, descomenta estas líneas y pásalo en el header
-            // const token = localStorage.getItem('token');
-            // const res = await axios.get('/api/agenda/entrenador', { headers: { Authorization: `Bearer ${token}` } });
-            
-            const res = await axios.get('/api/agenda/entrenador');
-            
+            const res = await API.get('/agenda/entrenador');
+
             // Validación clave: Asegurarnos de que siempre sea un Array
             if (Array.isArray(res.data)) {
                 setAgenda(res.data);
@@ -55,10 +51,8 @@ const AdministrarAgenda = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            // const token = localStorage.getItem('token');
-            await axios.post('/api/agenda', formData); 
-            // await axios.post('/api/agenda', formData, { headers: { Authorization: `Bearer ${token}` } });
-            
+            await API.post('/agenda', formData);
+
             alert('Horario agregado correctamente');
             setFormData({ dia: 'LUNES', hora_inicio: '', hora_fin: '', id_deporte_escenario: '', vigencia: '' });
             cargarAgenda();
@@ -71,10 +65,8 @@ const AdministrarAgenda = () => {
     const handleEliminar = async (id) => {
         if (!window.confirm('¿Deseas eliminar este horario?')) return;
         try {
-            // const token = localStorage.getItem('token');
-            await axios.delete(`/api/agenda/${id}`);
-            // await axios.delete(`/api/agenda/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-            
+            await API.delete(`/agenda/${id}`);
+
             setAgenda(prev => Array.isArray(prev) ? prev.filter(item => item.id !== id && item.id_agenda !== id) : []);
         } catch (error) {
             console.error("Error al eliminar:", error);

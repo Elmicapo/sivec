@@ -6,7 +6,7 @@ const authRoutes = require('./routes/auth.routes');
 const disciplinasRoutes = require('./routes/disciplinas.routes');
 const escenariosRoutes = require('./routes/escenarios.routes');
 const reportesRoutes = require('./routes/reportes.routes'); 
-const agendaRoutes = require('./routes/agendaRoutes');
+const agendaRoutes = require('./routes/agenda.routes');
 
 
 const app = express();

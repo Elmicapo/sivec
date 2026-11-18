@@ -1,6 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const { createHash } = require('node:crypto')
 const os = require('node:os')
 const path = require('node:path')
 const {
@@ -213,19 +214,25 @@ test('original target identity rejects wrong database, server and MySQL version'
 
 test('migration files are versioned, ordered, and checksummed', () => {
   const migrations = loadMigrations()
-  assert.deepEqual(migrations.map((migration) => migration.version), ['001', '002', '003', '004'])
+  assert.deepEqual(migrations.map((migration) => migration.version), ['001', '002', '003', '004', '005'])
   assert.deepEqual(
     selectMigrationsForTarget('original', migrations).map((migration) => migration.version),
     ['001', '002', '003']
   )
   assert.equal(selectMigrationsForTarget('isolated', migrations), migrations)
   assert.ok(migrations.every((migration) => /^[a-f0-9]{64}$/.test(migration.checksum)))
-  assert.doesNotThrow(() => assertOriginalMigrationSequence(migrations.slice(0, 3)))
+  // The approved original deployment files use CRLF. Keep the production byte check strict.
+  const approvedMigrations = selectMigrationsForTarget('original', migrations).map((migration) => {
+    const source = fs.readFileSync(path.join(__dirname, '../migrations', migration.name), 'utf8')
+    const approvedBytes = source.replace(/\r?\n/g, '\r\n')
+    return { ...migration, checksum: createHash('sha256').update(approvedBytes).digest('hex') }
+  })
+  assert.doesNotThrow(() => assertOriginalMigrationSequence(approvedMigrations))
   assert.throws(() => assertOriginalMigrationSequence(migrations), /checksum-pinned/)
   assert.throws(() => assertOriginalMigrationSequence(migrations.slice(1)), /checksum-pinned/)
   assert.throws(() => assertOriginalMigrationSequence([
-    { ...migrations[0], checksum: '0'.repeat(64) },
-    ...migrations.slice(1)
+    { ...approvedMigrations[0], checksum: '0'.repeat(64) },
+    ...approvedMigrations.slice(1)
   ]), /checksum-pinned/)
   assert.match(migrationLockName('sivec_restore_test_01'), /^sivec_migrations_[a-f0-9]{40}$/)
 })
