@@ -65,52 +65,41 @@ const MisSolicitudesEntrenador = () => {
     }, []);
 
     return (
-        <div className="offer-page">
-            <div className="offer-container">
-                
-                {/* Encabezado con contraste corregido */}
-                <div className="offer-page-heading flex justify-between items-end mb-6">
-                    <div>
-                        <span className="offer-eyebrow" style={{ color: 'var(--color-secondary)' }}>
-                            VINCULACIÓN CON DISCIPLINAS
-                        </span>
-                        <h1 style={{ color: 'var(--color-primary)' }}>
-                            Mis solicitudes de vinculación
-                        </h1>
-                        <p style={{ color: 'var(--color-text-secondary)' }}>
-                            Consulta el estado de tus solicitudes por disciplina.
-                        </p>
-                    </div>
-                    <button 
-                        onClick={actualizar}
-                        disabled={cargando || enviando}
-                        className="sivec-button sivec-button-secondary"
-                    >
-                        Actualizar
-                    </button>
-                </div>
+        <div className="offer-page min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+                <header className="offer-page-heading">
+                    <span className="block mb-2 text-sm font-semibold uppercase tracking-wide text-green-700">
+                        Vinculación con disciplinas
+                    </span>
+                    <h1>Mis solicitudes de vinculación</h1>
+                    <p>Solicita vincularte a una disciplina y consulta el estado de tus solicitudes.</p>
+                </header>
 
-                <form className="sivec-card p-6 mb-6" onSubmit={enviarSolicitud}>
-                    <h2 className="text-xl font-bold mb-4">Solicitar vinculación</h2>
-                    <label className="block font-medium mb-2" htmlFor="disciplina-vinculacion">Disciplina</label>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <select
-                            id="disciplina-vinculacion"
-                            className="rounded-lg border px-3 py-2"
-                            value={disciplinaId}
-                            onChange={event => setDisciplinaId(event.target.value)}
-                            disabled={enviando || errorCarga || !disciplinas.length}
-                            required
-                        >
-                            <option value="">Selecciona una disciplina</option>
-                            {disciplinas.map(disciplina => (
-                                <option key={disciplina.id_disciplina} value={disciplina.id_disciplina}>
-                                    {disciplina.nombre}
-                                </option>
-                            ))}
-                        </select>
+                <form className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" onSubmit={enviarSolicitud}>
+                    <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-5">
+                        Solicitar vinculación
+                    </h2>
+                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                        <label className="offer-field" htmlFor="disciplina-vinculacion">
+                            Disciplina
+                            <select
+                                id="disciplina-vinculacion"
+                                value={disciplinaId}
+                                onChange={event => setDisciplinaId(event.target.value)}
+                                disabled={enviando || errorCarga || !disciplinas.length}
+                                required
+                            >
+                                <option value="">Selecciona una disciplina</option>
+                                {disciplinas.map(disciplina => (
+                                    <option key={disciplina.id_disciplina} value={disciplina.id_disciplina}>
+                                        {disciplina.nombre}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
                         <button
-                            className="sivec-button sivec-button-primary"
+                            type="submit"
+                            className="offer-button offer-button-primary"
                             disabled={cargando || enviando || errorCarga || !disciplinaId || !disciplinas.length}
                         >
                             {enviando ? 'Enviando…' : 'Enviar solicitud'}
@@ -124,51 +113,51 @@ const MisSolicitudesEntrenador = () => {
                     )}
                 </form>
 
-                {/* Alertas con contraste legible */}
-                {mensaje && (
-                    <div className="sivec-alert sivec-alert-error mb-6" role="status">
-                        {mensaje}
-                    </div>
-                )}
-
-                {/* Tarjeta y Tabla */}
-                {!errorCarga && <div className="sivec-card p-0 overflow-hidden">
-                    {cargando ? (
-                        <p className="p-6 text-center" style={{ color: 'var(--color-text-secondary)' }}>
-                            Cargando solicitudes...
-                        </p>
-                    ) : solicitudes.length === 0 ? (
-                        <div className="p-8 text-center font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                            Aún no tienes solicitudes de vinculación.
-                        </div>
-                    ) : (
-                        <div className="sivec-table-container border-none">
-                            <table className="sivec-table">
-                                <thead>
-                                    <tr>
-                                        <th>Disciplina</th>
-                                        <th>Fecha Solicitud</th>
-                                        <th className="text-center">Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {solicitudes.map((sol) => (
-                                        <tr key={sol.id_solicitud_vinculacion}>
-                                            <td>{sol.disciplina}</td>
-                                            <td>{sol.fecha_solicitud}</td>
-                                            <td className="text-center">
-                                                <span className={`sivec-status sivec-status-${sol.estado === 'APROBADA' ? 'green' : sol.estado === 'RECHAZADA' ? 'red' : 'yellow'}`}>
-                                                    {sol.estado || 'PENDIENTE'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                <section aria-labelledby="historial-vinculacion" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+                        <h2 id="historial-vinculacion" className="text-lg font-semibold text-gray-800">
+                            Historial de solicitudes
+                        </h2>
+                        <button type="button" onClick={actualizar} disabled={cargando || enviando} className="offer-button offer-button-secondary">
+                            Actualizar
+                        </button>
+                    </header>
+                    {mensaje && (
+                        <p className="sivec-alert sivec-alert-error m-6" role="alert">{mensaje}</p>
                     )}
-                </div>}
-
+                    {!errorCarga && (
+                        cargando || solicitudes.length === 0 ? (
+                            <p className="p-6 text-center text-sm text-gray-600" role="status">
+                                {cargando ? 'Cargando solicitudes…' : 'Aún no tienes solicitudes de vinculación.'}
+                            </p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table aria-labelledby="historial-vinculacion" className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+                                        <tr>
+                                            <th scope="col" className="px-6 py-3 font-medium">Disciplina</th>
+                                            <th scope="col" className="px-6 py-3 font-medium">Fecha de solicitud</th>
+                                            <th scope="col" className="px-6 py-3 font-medium">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm divide-y divide-gray-100">
+                                        {solicitudes.map(sol => (
+                                            <tr key={sol.id_solicitud_vinculacion} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 font-semibold text-gray-900">{sol.disciplina}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-gray-600">{sol.fecha_solicitud}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`sivec-status sivec-status-${sol.estado === 'APROBADA' ? 'green' : sol.estado === 'RECHAZADA' ? 'red' : 'yellow'}`}>
+                                                        {sol.estado || 'PENDIENTE'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )
+                    )}
+                </section>
             </div>
         </div>
     );
