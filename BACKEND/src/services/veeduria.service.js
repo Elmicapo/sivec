@@ -188,6 +188,13 @@ const createVeeduriaService = (pool) => {
     return {
         async crearSolicitudEscenario(datos) {
             return withTransaction(async (connection) => {
+                if (datos.tipo_ubicacion === 'GPS' && datos.zona == null) {
+                    await assertSchemaMigrationsApplied(connection, ['006'], {
+                        code: 'SCENARIO_GPS_SCHEMA_NOT_READY',
+                        message: 'Las propuestas solo con GPS aún no están habilitadas. Puedes usar la ubicación manual.',
+                        createError: (code, message) => new VeeduriaError(503, code, message)
+                    });
+                }
                 const [disciplinas] = await connection.query(
                     'SELECT id_disciplina FROM disciplina WHERE id_disciplina = ? AND estado = ?',
                     [datos.id_disciplina, 'ACTIVA']
@@ -258,9 +265,11 @@ const createVeeduriaService = (pool) => {
                 const fechaUtc = await obtenerFechaUtc(connection);
                 let idEscenario = null;
                 if (estado === 'APROBADA') {
-                    const ubicacion = solicitud.zona === 'URBANA'
-                        ? `${solicitud.comuna} - ${solicitud.barrio}`
-                        : `${solicitud.corregimiento} - ${solicitud.localidad_rural}`;
+                    const ubicacion = solicitud.zona === null
+                        ? 'Ubicación registrada por GPS'
+                        : solicitud.zona === 'URBANA'
+                            ? `${solicitud.comuna} - ${solicitud.barrio}`
+                            : `${solicitud.corregimiento} - ${solicitud.localidad_rural}`;
                     const [escenario] = await connection.query(
                         `INSERT INTO escenario
                             (nombre, ubicacion, zona, tipo_localidad, tipo_ubicacion,

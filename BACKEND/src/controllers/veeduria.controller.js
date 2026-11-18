@@ -68,33 +68,34 @@ const validarSolicitudEscenario = (body = {}) => {
     const zona = typeof body.zona === 'string' ? body.zona.trim().toUpperCase() : '';
     const tipoUbicacion = typeof body.tipo_ubicacion === 'string' ? body.tipo_ubicacion.trim().toUpperCase() : '';
     const tipoLocalidad = typeof body.tipo_localidad === 'string' ? body.tipo_localidad.trim().toUpperCase() : '';
-    const latitud = body.latitud == null ? null : Number(body.latitud);
-    const longitud = body.longitud == null ? null : Number(body.longitud);
+    const coordenada = valor => typeof valor === 'number' || (typeof valor === 'string' && valor.trim())
+        ? Number(valor) : null;
+    const latitud = coordenada(body.latitud);
+    const longitud = coordenada(body.longitud);
     const urbana = zona === 'URBANA';
     const rural = zona === 'RURAL';
     const tieneGps = tipoUbicacion === 'GPS' && Number.isFinite(latitud) && Number.isFinite(longitud)
         && latitud >= -90 && latitud <= 90 && longitud >= -180 && longitud <= 180;
-    const manual = tipoUbicacion === 'MANUAL' && latitud === null && longitud === null;
+    const manual = tipoUbicacion === 'MANUAL' && body.latitud == null && body.longitud == null;
+    const territorio = Object.fromEntries(['comuna', 'barrio', 'corregimiento', 'localidad_rural'].map(campo =>
+        [campo, typeof body[campo] === 'string' ? body[campo].trim() || null : null]
+    ));
+    const { comuna, barrio, corregimiento, localidad_rural } = territorio;
+    const gpsSinTerritorio = tieneGps && !zona && !comuna && !barrio && !corregimiento && !localidad_rural;
+    const territorioUrbano = urbana && comuna && barrio && !corregimiento && !localidad_rural && tipoLocalidad === 'BARRIO';
+    const territorioRural = rural && corregimiento && localidad_rural && !comuna && !barrio
+        && ['VEREDA', 'CENTRO_POBLADO', 'PENDIENTE_VERIFICACION'].includes(tipoLocalidad);
 
-    if (!idDisciplina || !nombre || nombre.length > 150
-        || !TIPOS_ESCENARIO.has(tipoEscenario)
-        || (!urbana && !rural) || !['GPS', 'MANUAL'].includes(tipoUbicacion)
-        || (!urbana && !['VEREDA', 'CENTRO_POBLADO', 'PENDIENTE_VERIFICACION'].includes(tipoLocalidad))
-        || (urbana && tipoLocalidad !== 'BARRIO')
-        || (urbana && (!body.comuna || !body.barrio || body.corregimiento || body.localidad_rural))
-        || (rural && (!body.corregimiento || !body.localidad_rural || body.comuna || body.barrio))
-        || (!tieneGps && !manual)) return null;
+    if (!idDisciplina || !nombre || nombre.length > 150 || !TIPOS_ESCENARIO.has(tipoEscenario)
+        || (!tieneGps && !manual) || (!gpsSinTerritorio && !territorioUrbano && !territorioRural)) return null;
 
     return {
         id_disciplina: idDisciplina,
         nombre_escenario: nombre,
         tipo_escenario: tipoEscenario,
-        zona,
-        comuna: urbana ? String(body.comuna).trim() : null,
-        barrio: urbana ? String(body.barrio).trim() : null,
-        corregimiento: rural ? String(body.corregimiento).trim() : null,
-        localidad_rural: rural ? String(body.localidad_rural).trim() : null,
-        tipo_localidad: tipoLocalidad,
+        zona: zona || null,
+        ...territorio,
+        tipo_localidad: gpsSinTerritorio ? 'PENDIENTE_VERIFICACION' : tipoLocalidad,
         tipo_ubicacion: tipoUbicacion,
         latitud: tieneGps ? latitud : null,
         longitud: tieneGps ? longitud : null

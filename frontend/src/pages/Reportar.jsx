@@ -143,6 +143,7 @@ export default function Reportar() {
   const [form, setForm] = useState(FORM_INICIAL)
   const [ubicacionGps, setUbicacionGps] = useState(null)
   const [solicitandoGps, setSolicitandoGps] = useState(false)
+  const solicitudGpsRef = useRef(0)
   const [errorGps, setErrorGps] = useState('')
   const [fotos, setFotos] = useState([])
   const fotosRef = useRef([])
@@ -225,6 +226,8 @@ export default function Reportar() {
   }
 
   const elegirTipoEscenario = (tipo) => {
+    solicitudGpsRef.current += 1
+    setSolicitandoGps(false)
     setPaso(0)
     setForm((actual) => ({
       ...actual,
@@ -252,12 +255,12 @@ export default function Reportar() {
       if (form.tipo_escenario === 'existente') {
         if (!form.id_escenario) nuevosErrores.id_escenario = 'Busca y selecciona un escenario del inventario.'
       } else {
-        if (!form.zona) nuevosErrores.zona = 'Selecciona la zona del escenario.'
-        if (form.zona === 'urbana') {
+        if (form.tipo_ubicacion === 'manual' && !form.zona) nuevosErrores.zona = 'Selecciona la zona del escenario.'
+        if (form.tipo_ubicacion === 'manual' && form.zona === 'urbana') {
           if (!form.comuna) nuevosErrores.comuna = 'Selecciona una comuna.'
           if (!form.barrio) nuevosErrores.barrio = 'Selecciona un barrio.'
         }
-        if (form.zona === 'rural') {
+        if (form.tipo_ubicacion === 'manual' && form.zona === 'rural') {
           if (!form.corregimiento) nuevosErrores.corregimiento = 'Selecciona un corregimiento.'
           if (!form.localidad) nuevosErrores.localidad = 'Selecciona una vereda o centro poblado.'
         }
@@ -308,16 +311,20 @@ export default function Reportar() {
       setErrorGps('Este navegador no permite solicitar la ubicación GPS.')
       return
     }
+    const solicitud = ++solicitudGpsRef.current
+    setForm(actual => ({ ...actual, tipo_ubicacion: 'gps' }))
+    setUbicacionGps(null)
     setSolicitandoGps(true)
     setErrorGps('')
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
+        if (solicitud !== solicitudGpsRef.current) return
         setUbicacionGps({ latitud: coords.latitude, longitud: coords.longitude })
-        setForm((actual) => ({ ...actual, tipo_ubicacion: 'gps' }))
         setErrores((actual) => ({ ...actual, tipo_ubicacion: '' }))
         setSolicitandoGps(false)
       },
       (error) => {
+        if (solicitud !== solicitudGpsRef.current) return
         const mensajes = {
           1: 'No se concedió permiso de ubicación. Puedes autorizarlo o elegir ubicación manual.',
           2: 'No fue posible determinar la ubicación. Intenta de nuevo o elige ubicación manual.',
@@ -331,6 +338,8 @@ export default function Reportar() {
   }
 
   const seleccionarUbicacionManual = () => {
+    solicitudGpsRef.current += 1
+    setSolicitandoGps(false)
     setForm((actual) => ({ ...actual, tipo_ubicacion: 'manual' }))
     setUbicacionGps(null)
     setErrorGps('')
@@ -520,16 +529,19 @@ export default function Reportar() {
           evidencias
         })
       } else {
+        const manual = form.tipo_ubicacion === 'manual'
         response = await crearSolicitudEscenario({
           id_disciplina: Number(form.id_disciplina),
           nombre_escenario: form.nombre_escenario.trim(),
           tipo_escenario: form.tipo_fisico_escenario,
-          zona: form.zona.toUpperCase(),
-          comuna: form.comuna || null,
-          barrio: form.barrio || null,
-          corregimiento: form.corregimiento || null,
-          localidad_rural: form.localidad || null,
-          tipo_localidad: form.zona === 'urbana' ? 'BARRIO' : form.localidad.startsWith('C.P.') ? 'CENTRO_POBLADO' : 'VEREDA',
+          ...(manual ? {
+            zona: form.zona.toUpperCase(),
+            comuna: form.comuna || null,
+            barrio: form.barrio || null,
+            corregimiento: form.corregimiento || null,
+            localidad_rural: form.localidad || null,
+            tipo_localidad: form.zona === 'urbana' ? 'BARRIO' : localidadEsCentroPoblado(form.localidad) ? 'CENTRO_POBLADO' : 'VEREDA'
+          } : {}),
           tipo_ubicacion: form.tipo_ubicacion.toUpperCase(),
           latitud: ubicacionGps?.latitud ?? null,
           longitud: ubicacionGps?.longitud ?? null
@@ -704,64 +716,86 @@ export default function Reportar() {
                     </p>
                   </div>
 
-                  <Campo id="zona" etiqueta="Zona" error={errores.zona}>
-                    <select id="zona" className={CLASE_CAMPO} value={form.zona} onChange={(event) => {
-                      const zona = event.target.value
-                      setForm((actual) => ({ ...actual, zona, comuna: '', barrio: '', corregimiento: '', localidad: '' }))
-                      setErrores((actual) => ({ ...actual, zona: '', comuna: '', barrio: '', corregimiento: '', localidad: '' }))
-                    }}>
-                      <option value="">Selecciona zona urbana o rural</option>
-                      <option value="urbana">Zona urbana</option>
-                      <option value="rural">Zona rural</option>
-                    </select>
-                  </Campo>
-
-                  {form.zona === 'urbana' && (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Campo id="comuna" etiqueta="Comuna" error={errores.comuna}>
-                        <select id="comuna" className={CLASE_CAMPO} value={form.comuna} onChange={(event) => seleccionarComuna(event.target.value)}>
-                          <option value="">Selecciona una comuna</option>
-                          {Object.keys(COMUNAS).map((comuna) => <option key={comuna} value={comuna}>{comuna}</option>)}
-                        </select>
-                      </Campo>
-                      <Campo id="barrio" etiqueta="Barrio" error={errores.barrio}>
-                        <select id="barrio" className={CLASE_CAMPO} value={form.barrio} onChange={(event) => actualizar('barrio', event.target.value)} disabled={!form.comuna}>
-                          <option value="">Selecciona un barrio</option>
-                          {(COMUNAS[form.comuna] || []).map((barrio) => <option key={barrio} value={barrio}>{barrio}</option>)}
-                        </select>
-                      </Campo>
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-slate-100">Ubicación del escenario</p>
+                    <p className="text-xs text-slate-400">El GPS solo se solicita cuando lo pides. Con ubicación manual tendrás que indicar la zona y el sector.</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button type="button" onClick={solicitarUbicacion} disabled={solicitandoGps} className={`rounded-xl border p-4 text-left transition ${form.tipo_ubicacion === 'gps' ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-950/50 hover:border-slate-500'}`}>
+                        <span className="block font-semibold text-white">{solicitandoGps ? 'Solicitando permiso…' : 'Usar GPS'}</span>
+                        <span className="mt-1 block text-xs text-slate-400">Solo tras tu acción y autorización del navegador.</span>
+                      </button>
+                      <button type="button" onClick={seleccionarUbicacionManual} className={`rounded-xl border p-4 text-left transition ${form.tipo_ubicacion === 'manual' ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-950/50 hover:border-slate-500'}`}>
+                        <span className="block font-semibold text-white">Ubicación manual</span>
+                        <span className="mt-1 block text-xs text-slate-400">Elige la zona y el sector del escenario.</span>
+                      </button>
                     </div>
-                  )}
+                    {form.tipo_ubicacion === 'gps' && ubicacionGps && <p className="text-sm text-emerald-300" role="status">Ubicación GPS capturada con permiso. Las coordenadas se enviarán con la propuesta.</p>}
+                    {errorGps && <p className="text-sm text-rose-300" role="alert">{errorGps}</p>}
+                    {errores.tipo_ubicacion && <p className="text-sm text-rose-300" role="alert">{errores.tipo_ubicacion}</p>}
+                  </div>
 
-                  {form.zona === 'rural' && (
-                    <>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Campo id="corregimiento" etiqueta="Corregimiento" error={errores.corregimiento}>
-                          <select id="corregimiento" className={CLASE_CAMPO} value={form.corregimiento} onChange={(event) => seleccionarCorregimiento(event.target.value)}>
-                            <option value="">Selecciona un corregimiento</option>
-                            {Object.keys(CORREGIMIENTOS).map((corregimiento) => <option key={corregimiento} value={corregimiento}>{corregimiento}</option>)}
-                          </select>
-                        </Campo>
-                        <Campo
-                          id="localidad-rural"
-                          etiqueta="Vereda o centro poblado"
-                          error={errores.localidad}
-                          ayuda="Las entradas marcadas C.P. se conservan como centros poblados. Las demás clasificaciones rurales requieren verificación institucional."
-                        >
-                          <select id="localidad-rural" className={CLASE_CAMPO} value={form.localidad} onChange={(event) => actualizar('localidad', event.target.value)} disabled={!form.corregimiento}>
-                            <option value="">Selecciona una localidad</option>
-                            {localidadesRurales.map((localidad) => (
-                              <option key={localidad} value={localidad}>
-                                {localidadEsCentroPoblado(localidad) ? `${localidad} · Centro poblado` : localidad}
-                              </option>
-                            ))}
-                          </select>
-                        </Campo>
-                      </div>
-                      <p className="text-xs leading-relaxed text-slate-500">
-                        Catálogo transcrito de la relación suministrada para SIVEC; no constituye una certificación oficial.
-                      </p>
-                    </>
+                  {form.tipo_ubicacion === 'manual' && (
+                    <div className="space-y-4">
+                      <Campo id="zona" etiqueta="Zona" error={errores.zona}>
+                        <select id="zona" className={CLASE_CAMPO} value={form.zona} onChange={(event) => {
+                          const zona = event.target.value
+                          setForm((actual) => ({ ...actual, zona, comuna: '', barrio: '', corregimiento: '', localidad: '' }))
+                          setErrores((actual) => ({ ...actual, zona: '', comuna: '', barrio: '', corregimiento: '', localidad: '' }))
+                        }}>
+                          <option value="">Selecciona zona urbana o rural</option>
+                          <option value="urbana">Zona urbana</option>
+                          <option value="rural">Zona rural</option>
+                        </select>
+                      </Campo>
+
+                      {form.zona === 'urbana' && (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Campo id="comuna" etiqueta="Comuna" error={errores.comuna}>
+                            <select id="comuna" className={CLASE_CAMPO} value={form.comuna} onChange={(event) => seleccionarComuna(event.target.value)}>
+                              <option value="">Selecciona una comuna</option>
+                              {Object.keys(COMUNAS).map((comuna) => <option key={comuna} value={comuna}>{comuna}</option>)}
+                            </select>
+                          </Campo>
+                          <Campo id="barrio" etiqueta="Barrio" error={errores.barrio}>
+                            <select id="barrio" className={CLASE_CAMPO} value={form.barrio} onChange={(event) => actualizar('barrio', event.target.value)} disabled={!form.comuna}>
+                              <option value="">Selecciona un barrio</option>
+                              {(COMUNAS[form.comuna] || []).map((barrio) => <option key={barrio} value={barrio}>{barrio}</option>)}
+                            </select>
+                          </Campo>
+                        </div>
+                      )}
+
+                      {form.zona === 'rural' && (
+                        <>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Campo id="corregimiento" etiqueta="Corregimiento" error={errores.corregimiento}>
+                              <select id="corregimiento" className={CLASE_CAMPO} value={form.corregimiento} onChange={(event) => seleccionarCorregimiento(event.target.value)}>
+                                <option value="">Selecciona un corregimiento</option>
+                                {Object.keys(CORREGIMIENTOS).map((corregimiento) => <option key={corregimiento} value={corregimiento}>{corregimiento}</option>)}
+                              </select>
+                            </Campo>
+                            <Campo
+                              id="localidad-rural"
+                              etiqueta="Vereda o centro poblado"
+                              error={errores.localidad}
+                              ayuda="Las entradas marcadas C.P. se conservan como centros poblados. Las demás clasificaciones rurales requieren verificación institucional."
+                            >
+                              <select id="localidad-rural" className={CLASE_CAMPO} value={form.localidad} onChange={(event) => actualizar('localidad', event.target.value)} disabled={!form.corregimiento}>
+                                <option value="">Selecciona una localidad</option>
+                                {localidadesRurales.map((localidad) => (
+                                  <option key={localidad} value={localidad}>
+                                    {localidadEsCentroPoblado(localidad) ? `${localidad} · Centro poblado` : localidad}
+                                  </option>
+                                ))}
+                              </select>
+                            </Campo>
+                          </div>
+                          <p className="text-xs leading-relaxed text-slate-500">
+                            Catálogo transcrito de la relación suministrada para SIVEC; no constituye una certificación oficial.
+                          </p>
+                        </>
+                      )}
+                    </div>
                   )}
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -788,23 +822,7 @@ export default function Reportar() {
                     </Campo>
                   </div>
 
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-slate-100">Ubicación del escenario</p>
-                    <p className="text-xs text-slate-400">El GPS solo se solicita cuando lo pides. La ubicación manual usa la información territorial seleccionada; no se pueden escribir coordenadas.</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <button type="button" onClick={solicitarUbicacion} disabled={solicitandoGps} className={`rounded-xl border p-4 text-left transition ${form.tipo_ubicacion === 'gps' ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-950/50 hover:border-slate-500'}`}>
-                        <span className="block font-semibold text-white">{solicitandoGps ? 'Solicitando permiso…' : 'Usar GPS'}</span>
-                        <span className="mt-1 block text-xs text-slate-400">Solo tras tu acción y autorización del navegador.</span>
-                      </button>
-                      <button type="button" onClick={seleccionarUbicacionManual} className={`rounded-xl border p-4 text-left transition ${form.tipo_ubicacion === 'manual' ? 'border-cyan-300 bg-cyan-300/10' : 'border-slate-700 bg-slate-950/50 hover:border-slate-500'}`}>
-                        <span className="block font-semibold text-white">Ubicación manual</span>
-                        <span className="mt-1 block text-xs text-slate-400">Usa la zona y la selección territorial anterior.</span>
-                      </button>
-                    </div>
-                    {form.tipo_ubicacion === 'gps' && ubicacionGps && <p className="text-sm text-emerald-300" role="status">Ubicación GPS capturada con permiso. Las coordenadas se enviarán con la propuesta.</p>}
-                    {errorGps && <p className="text-sm text-rose-300" role="alert">{errorGps}</p>}
-                    {errores.tipo_ubicacion && <p className="text-sm text-rose-300" role="alert">{errores.tipo_ubicacion}</p>}
-                  </div>
+
                 </div>
               )}
             </div>
@@ -926,7 +944,9 @@ export default function Reportar() {
                   ) : (
                     <>
                       <p className="mt-2 font-semibold text-white">{form.nombre_escenario || 'Sin nombre'}</p>
-                      <p className="mt-1 text-sm text-slate-300">{form.zona === 'urbana' ? `${form.comuna} · ${form.barrio}` : `${form.corregimiento} · ${form.localidad}`}</p>
+                      {form.tipo_ubicacion === 'manual' && (
+                        <p className="mt-1 text-sm text-slate-300">{form.zona === 'urbana' ? `${form.comuna} · ${form.barrio}` : `${form.corregimiento} · ${form.localidad}`}</p>
+                      )}
                       <p className="mt-1 text-sm text-slate-400">{disciplinaSeleccionada?.nombre || 'Sin disciplina'}</p>
                       <p className="mt-2 text-xs text-amber-200">Propuesta nueva: pendiente de revisión independiente del CMJ.</p>
                       <p className="mt-1 text-xs text-slate-500">Ubicación: {form.tipo_ubicacion === 'gps' ? 'GPS autorizado' : form.tipo_ubicacion === 'manual' ? 'Selección territorial manual' : 'Sin seleccionar'}</p>

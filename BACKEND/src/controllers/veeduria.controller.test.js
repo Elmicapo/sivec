@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     validarReportePublico,
+    validarSolicitudEscenario,
     validarReporteVeeduria,
     oficializarReporteVeeduria
 } = require('./veeduria.controller');
@@ -94,4 +95,27 @@ test('public report rejects more than five evidences', () => {
         descripcion: 'Daño',
         evidencias
     }), null);
+});
+
+
+test('scenario proposals accept GPS coordinates without administrative territory', () => {
+    const solicitud = {
+        id_disciplina: 1, nombre_escenario: 'Cancha de prueba', tipo_escenario: 'CANCHA',
+        tipo_ubicacion: 'GPS', latitud: 7.88, longitud: -76.63
+    };
+    const datos = validarSolicitudEscenario(solicitud);
+    assert.equal(datos.zona, null);
+    assert.equal(datos.tipo_localidad, 'PENDIENTE_VERIFICACION');
+    assert.equal(datos.latitud, 7.88);
+    assert.equal(datos.longitud, -76.63);
+    assert.equal(validarSolicitudEscenario({ ...solicitud, latitud: '' }), null);
+    assert.equal(validarSolicitudEscenario({ ...solicitud, latitud: 91 }), null);
+    assert.equal(validarSolicitudEscenario({ ...solicitud, comuna: 'Comuna sin zona' }), null);
+    assert.equal(validarSolicitudEscenario({ ...solicitud, tipo_ubicacion: 'MANUAL', latitud: null, longitud: null }), null);
+    const manual = validarSolicitudEscenario({
+        ...solicitud, tipo_ubicacion: 'MANUAL', latitud: null, longitud: null,
+        zona: 'URBANA', comuna: 'Comuna de prueba', barrio: 'Barrio de prueba', tipo_localidad: 'BARRIO'
+    });
+    assert.equal(manual.barrio, 'Barrio de prueba');
+    assert.equal(manual.tipo_localidad, 'BARRIO');
 });

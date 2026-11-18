@@ -214,7 +214,7 @@ test('original target identity rejects wrong database, server and MySQL version'
 
 test('migration files are versioned, ordered, and checksummed', () => {
   const migrations = loadMigrations()
-  assert.deepEqual(migrations.map((migration) => migration.version), ['001', '002', '003', '004', '005'])
+  assert.deepEqual(migrations.map((migration) => migration.version), ['001', '002', '003', '004', '005', '006'])
   assert.deepEqual(
     selectMigrationsForTarget('original', migrations).map((migration) => migration.version),
     ['001', '002', '003']
