@@ -67,7 +67,7 @@ const MisSolicitudesEntrenador = () => {
     return (
         <div className="offer-page min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto space-y-8">
-                <header className="offer-page-heading">
+                <header className="offer-page-heading mb-6">
                     <span className="block mb-2 text-sm font-semibold uppercase tracking-wide text-green-700">
                         Vinculación con disciplinas
                     </span>
@@ -75,15 +75,18 @@ const MisSolicitudesEntrenador = () => {
                     <p>Solicita vincularte a una disciplina y consulta el estado de tus solicitudes.</p>
                 </header>
 
-                <form className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" onSubmit={enviarSolicitud}>
-                    <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-5">
-                        Solicitar vinculación
+                <section aria-labelledby="nueva-vinculacion" className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 id="nueva-vinculacion" className="text-xl font-bold mb-6 text-gray-800 border-b pb-3">
+                        Nueva solicitud
                     </h2>
-                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                        <label className="offer-field" htmlFor="disciplina-vinculacion">
-                            Disciplina
+                    <form onSubmit={enviarSolicitud} className="flex flex-col gap-5">
+                        <div className="w-full md:w-1/2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="disciplina-vinculacion">
+                                Disciplina
+                            </label>
                             <select
                                 id="disciplina-vinculacion"
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm p-2.5 border bg-white disabled:bg-gray-50 disabled:text-gray-500"
                                 value={disciplinaId}
                                 onChange={event => setDisciplinaId(event.target.value)}
                                 disabled={enviando || errorCarga || !disciplinas.length}
@@ -96,22 +99,26 @@ const MisSolicitudesEntrenador = () => {
                                     </option>
                                 ))}
                             </select>
-                        </label>
-                        <button
-                            type="submit"
-                            className="offer-button offer-button-primary"
-                            disabled={cargando || enviando || errorCarga || !disciplinaId || !disciplinas.length}
-                        >
-                            {enviando ? 'Enviando…' : 'Enviar solicitud'}
-                        </button>
-                    </div>
-                    {errorCatalogo && <p className="sivec-alert sivec-alert-error mt-4" role="alert">{errorCatalogo}</p>}
-                    {resultado && (
-                        <p className={`sivec-alert sivec-alert-${resultado.tipo} mt-4`} role="status">
-                            {resultado.texto}
-                        </p>
-                    )}
-                </form>
+                        </div>
+
+                        <div className="flex justify-end mt-2">
+                            <button
+                                type="submit"
+                                className="w-full sm:w-auto bg-[#173F35] text-white px-6 py-2.5 rounded-md hover:bg-green-800 transition-colors text-sm font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                disabled={cargando || enviando || errorCarga || !disciplinaId || !disciplinas.length}
+                            >
+                                {enviando ? 'Enviando…' : 'Enviar solicitud'}
+                            </button>
+                        </div>
+
+                        {errorCatalogo && <p className="sivec-alert sivec-alert-error" role="alert">{errorCatalogo}</p>}
+                        {resultado && (
+                            <p className={`sivec-alert sivec-alert-${resultado.tipo}`} role="status">
+                                {resultado.texto}
+                            </p>
+                        )}
+                    </form>
+                </section>
 
                 <section aria-labelledby="historial-vinculacion" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
