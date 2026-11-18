@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { misSolicitudesVinculacion } from '../services/entrenadoresService';
+import { getDisciplinasActivas } from '../services/deportesService';
+import { misSolicitudesVinculacion, solicitarVinculacion } from '../services/entrenadoresService';
 
 const MisSolicitudesEntrenador = () => {
     const [solicitudes, setSolicitudes] = useState([]);
     const [cargando, setCargando] = useState(true);
     const [mensaje, setMensaje] = useState('');
     const [errorCarga, setErrorCarga] = useState(false);
+    const [disciplinas, setDisciplinas] = useState([]);
+    const [disciplinaId, setDisciplinaId] = useState('');
+    const [errorCatalogo, setErrorCatalogo] = useState('');
+    const [enviando, setEnviando] = useState(false);
+    const [resultado, setResultado] = useState(null);
 
     const cargarSolicitudes = async () => {
         try {
@@ -22,8 +28,40 @@ const MisSolicitudesEntrenador = () => {
         }
     };
 
-    useEffect(() => {
+    const actualizar = () => {
         cargarSolicitudes();
+        setErrorCatalogo('');
+        getDisciplinasActivas()
+            .then(({ data }) => setDisciplinas(data.data || []))
+            .catch(error => {
+                setDisciplinas([]);
+                setErrorCatalogo(error.response?.data?.message || 'No se pudo cargar el catálogo de disciplinas.');
+            });
+    };
+
+    const enviarSolicitud = async (event) => {
+        event.preventDefault();
+        if (!disciplinaId || enviando) return;
+
+        setEnviando(true);
+        setResultado(null);
+        try {
+            await solicitarVinculacion(Number(disciplinaId));
+            setDisciplinaId('');
+            setResultado({ tipo: 'success', texto: 'Solicitud enviada. Queda pendiente de revisión.' });
+            await cargarSolicitudes();
+        } catch (error) {
+            setResultado({
+                tipo: 'error',
+                texto: error.response?.data?.message || 'No se pudo enviar la solicitud.'
+            });
+        } finally {
+            setEnviando(false);
+        }
+    };
+
+    useEffect(() => {
+        actualizar();
     }, []);
 
     return (
@@ -44,13 +82,47 @@ const MisSolicitudesEntrenador = () => {
                         </p>
                     </div>
                     <button 
-                        onClick={cargarSolicitudes}
-                        disabled={cargando}
+                        onClick={actualizar}
+                        disabled={cargando || enviando}
                         className="sivec-button sivec-button-secondary"
                     >
                         Actualizar
                     </button>
                 </div>
+
+                <form className="sivec-card p-6 mb-6" onSubmit={enviarSolicitud}>
+                    <h2 className="text-xl font-bold mb-4">Solicitar vinculación</h2>
+                    <label className="block font-medium mb-2" htmlFor="disciplina-vinculacion">Disciplina</label>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <select
+                            id="disciplina-vinculacion"
+                            className="rounded-lg border px-3 py-2"
+                            value={disciplinaId}
+                            onChange={event => setDisciplinaId(event.target.value)}
+                            disabled={enviando || errorCarga || !disciplinas.length}
+                            required
+                        >
+                            <option value="">Selecciona una disciplina</option>
+                            {disciplinas.map(disciplina => (
+                                <option key={disciplina.id_disciplina} value={disciplina.id_disciplina}>
+                                    {disciplina.nombre}
+                                </option>
+                            ))}
+                        </select>
+                        <button
+                            className="sivec-button sivec-button-primary"
+                            disabled={cargando || enviando || errorCarga || !disciplinaId || !disciplinas.length}
+                        >
+                            {enviando ? 'Enviando…' : 'Enviar solicitud'}
+                        </button>
+                    </div>
+                    {errorCatalogo && <p className="sivec-alert sivec-alert-error mt-4" role="alert">{errorCatalogo}</p>}
+                    {resultado && (
+                        <p className={`sivec-alert sivec-alert-${resultado.tipo} mt-4`} role="status">
+                            {resultado.texto}
+                        </p>
+                    )}
+                </form>
 
                 {/* Alertas con contraste legible */}
                 {mensaje && (
