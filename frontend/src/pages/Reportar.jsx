@@ -154,8 +154,15 @@ export default function Reportar() {
   const [confirmado, setConfirmado] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState(null)
+  const tituloConfirmacion = useRef(null)
+  const [estadoCopia, setEstadoCopia] = useState('')
   const enviado = Boolean(resultado && !resultado.error)
+  const esReporte = form.tipo_escenario === 'existente'
   const pasos = form.tipo_escenario === 'existente' ? PASOS : PASOS_PROPUESTA
+
+  useEffect(() => {
+    if (enviado) tituloConfirmacion.current?.focus()
+  }, [enviado])
 
   useEffect(() => {
     let activo = true
@@ -448,6 +455,15 @@ export default function Reportar() {
     }`
   )
 
+  const copiarCodigo = async () => {
+    try {
+      await navigator.clipboard.writeText(resultado.codigo_seguimiento)
+      setEstadoCopia('Código copiado.')
+    } catch {
+      setEstadoCopia('Selecciona el código para copiarlo manualmente.')
+    }
+  }
+
   const iniciarNuevoReporte = () => {
     fotos.forEach(foto => URL.revokeObjectURL(foto.url))
     setFotos([])
@@ -458,6 +474,7 @@ export default function Reportar() {
     setUbicacionGps(null)
     setErrorGps('')
     setResultado(null)
+    setEstadoCopia('')
     setConfirmado(false)
     setErrores({})
     setPaso(0)
@@ -547,6 +564,32 @@ export default function Reportar() {
           </p>
         </header>
 
+        {enviado ? (
+          <section aria-labelledby="envio-confirmado" className="rounded-3xl border border-emerald-300/30 bg-slate-900/90 p-6 shadow-2xl shadow-black/20 sm:p-8">
+            <span aria-hidden="true" className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-full bg-emerald-400/15 text-2xl font-bold text-emerald-300">✓</span>
+            <h2 id="envio-confirmado" ref={tituloConfirmacion} tabIndex={-1} className="text-2xl font-bold text-white sm:text-3xl">
+              {esReporte ? 'Reporte enviado correctamente' : 'Propuesta enviada correctamente'}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300" role="status">
+              {esReporte ? 'Tu reporte quedó registrado y está pendiente de revisión por el CMJ.' : 'Tu propuesta quedó registrada para revisión del CMJ.'}
+            </p>
+            {esReporte && resultado.codigo_seguimiento && (
+              <div className="mt-6 rounded-xl border border-slate-700 bg-slate-950/50 p-4">
+                <p className="text-sm font-semibold text-slate-200">Código de seguimiento</p>
+                <code className="mt-2 block select-all break-all text-sm text-white">{resultado.codigo_seguimiento}</code>
+                <p className="mt-2 text-sm text-slate-300">Guárdalo para consultar el estado de tu reporte.</p>
+                <button type="button" onClick={copiarCodigo} className="offer-button offer-button-secondary mt-3">
+                  Copiar código
+                </button>
+                <p role="status" className="text-sm text-slate-300">{estadoCopia}</p>
+              </div>
+            )}
+            <button type="button" onClick={iniciarNuevoReporte} className="offer-button offer-button-primary mt-6">
+              Iniciar otro reporte
+            </button>
+          </section>
+        ) : (
+          <>
         <nav aria-label={form.tipo_escenario === 'existente' ? 'Progreso del reporte' : 'Progreso de la propuesta'} className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-xl shadow-black/10 sm:p-5">
           <ol className="grid grid-cols-4 gap-2 sm:gap-4">
             {pasos.map((item, index) => (
@@ -918,29 +961,15 @@ export default function Reportar() {
               </label>
 
               {errores.confirmacion && <p className="text-sm font-medium text-rose-300" role="alert">{errores.confirmacion}</p>}
-              {resultado && (
-                <div className={`rounded-2xl border p-4 ${resultado.error ? 'border-rose-300/30 bg-rose-300/10' : 'border-emerald-300/30 bg-emerald-300/10'}`} role="status">
-                  <p className="font-bold">
-                    {resultado.error
-                      ? form.tipo_escenario === 'existente' ? 'No se pudo enviar el reporte' : 'No se pudo enviar la propuesta'
-                      : form.tipo_escenario === 'existente' ? 'Reporte enviado correctamente' : 'Propuesta enviada correctamente'}
-                  </p>
-                  {resultado.error
-                    ? <p className="mt-1 text-sm">{resultado.error}</p>
-                    : form.tipo_escenario === 'existente'
-                      ? <p className="mt-1 text-sm">Guarda este código de seguimiento: <strong className="break-all">{resultado.codigo_seguimiento}</strong></p>
-                      : <p className="mt-1 text-sm">Tu propuesta quedó registrada para revisión del CMJ.</p>}
+              {resultado?.error && (
+                <div className="rounded-2xl border border-rose-300/30 bg-rose-300/10 p-4" role="alert">
+                  <p className="font-bold">{esReporte ? 'No se pudo enviar el reporte' : 'No se pudo enviar la propuesta'}</p>
+                  <p className="mt-1 text-sm">{resultado.error}</p>
                 </div>
               )}
-              {enviado ? (
-                <button type="button" onClick={iniciarNuevoReporte} className="offer-button offer-button-primary w-full">
-                  Iniciar otro reporte
-                </button>
-              ) : (
-                <button type="button" onClick={enviarReporte} disabled={enviando} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3.5 font-bold text-slate-950 disabled:opacity-50">
-                  {enviando ? 'Enviando…' : form.tipo_escenario === 'existente' ? 'Enviar reporte' : 'Enviar propuesta'}
-                </button>
-              )}
+              <button type="button" onClick={enviarReporte} disabled={enviando} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3.5 font-bold text-slate-950 disabled:opacity-50">
+                {enviando ? 'Enviando…' : esReporte ? 'Enviar reporte' : 'Enviar propuesta'}
+              </button>
             </div>
           )}
 
@@ -955,6 +984,8 @@ export default function Reportar() {
             )}
           </div>
         </section>
+          </>
+        )}
 
         <p className="mt-5 text-center text-xs leading-5 text-slate-500">
           La validación del reporte y la oficialización del semáforo son procesos distintos. Solo el CMJ puede realizar la oficialización.
