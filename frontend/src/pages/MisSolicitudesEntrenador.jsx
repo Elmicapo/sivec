@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import useActualizarLista from '../hooks/useActualizarLista';
 import { getDisciplinasActivas } from '../services/deportesService';
 import { misSolicitudesVinculacion, solicitarVinculacion } from '../services/entrenadoresService';
 
@@ -13,18 +14,26 @@ const MisSolicitudesEntrenador = () => {
     const [enviando, setEnviando] = useState(false);
     const [resultado, setResultado] = useState(null);
 
-    const cargarSolicitudes = async () => {
+    const consulta = useRef(0);
+
+    const cargarSolicitudes = async (silenciosa = false) => {
+        const turno = ++consulta.current;
         try {
-            setCargando(true);
-            setMensaje('');
-            setErrorCarga(false);
+            if (!silenciosa) {
+                setCargando(true);
+                setMensaje('');
+                setErrorCarga(false);
+            }
             const respuesta = await misSolicitudesVinculacion();
+            if (turno !== consulta.current) return;
+            setErrorCarga(false);
             setSolicitudes(respuesta.data.data || []);
         } catch (error) {
+            if (silenciosa || turno !== consulta.current) return;
             setErrorCarga(true);
             setMensaje(error.response?.data?.message || 'No se pudieron cargar las solicitudes.');
         } finally {
-            setCargando(false);
+            if (turno === consulta.current) setCargando(false);
         }
     };
 
@@ -63,6 +72,10 @@ const MisSolicitudesEntrenador = () => {
     useEffect(() => {
         actualizar();
     }, []);
+
+    useActualizarLista(() => {
+        if (!cargando && !enviando) return cargarSolicitudes(true);
+    });
 
     return (
         <div className="offer-page min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">

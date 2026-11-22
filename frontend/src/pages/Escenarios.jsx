@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import useActualizarLista from '../hooks/useActualizarLista'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getEscenarios, getDisciplinasActivas } from '../services/deportesService'
@@ -255,6 +256,10 @@ export default function Escenarios() {
       activo = false
     }
   }, [aplicarResultados])
+
+  useActualizarLista(async () => {
+    aplicarResultados(await solicitarDatosPortada())
+  })
 
   const reintentar = () => {
     setEstadoEscenarios('loading')

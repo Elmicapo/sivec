@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import useActualizarLista from '../hooks/useActualizarLista'
 import { Link } from 'react-router-dom'
 import { buscarDisciplinas, inscribirse } from '../services/disciplinasService'
 import { useAuth } from '../context/AuthContext'
@@ -12,20 +13,27 @@ export default function Disciplinas() {
   const [mensaje, setMensaje] = useState(null)
   const [inscribiendoId, setInscribiendoId] = useState(null)
 
-  const cargar = async (f) => {
+  const filtrosAplicados = useRef({})
+  const consulta = useRef(0)
+
+  const cargar = async (f, silenciosa = false) => {
+    const turno = ++consulta.current
     try {
       const res = await buscarDisciplinas(f)
+      if (turno !== consulta.current) return
       setLista(res.data.data)
       setError('')
     } catch {
+      if (silenciosa || turno !== consulta.current) return
       setLista([])
       setError('No se pudieron cargar las disciplinas. Intenta nuevamente.')
     } finally {
-      setCargando(false)
+      if (turno === consulta.current) setCargando(false)
     }
   }
 
   const solicitarCarga = (f) => {
+    filtrosAplicados.current = f
     setCargando(true)
     setError('')
     cargar(f)
@@ -52,6 +60,10 @@ export default function Disciplinas() {
     }
   }, [])
 
+  useActualizarLista(() => {
+    if (!cargando) return cargar(filtrosAplicados.current, true)
+  })
+
   const buscar = (e) => {
     e.preventDefault()
     setMensaje(null)
@@ -72,7 +84,7 @@ export default function Disciplinas() {
       const res = await inscribirse(id)
       setMensaje({ tipo: 'ok', texto: res.data.message })
       setCargando(true)
-      await cargar(filtros)
+      await cargar(filtrosAplicados.current)
     } catch (err) {
       setMensaje({ tipo: 'error', texto: err.response?.data?.message || 'No se pudo realizar la inscripción' })
     } finally {

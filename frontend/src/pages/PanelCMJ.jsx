@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import useActualizarLista from '../hooks/useActualizarLista'
 import RevisionCMJ from '../components/RevisionCMJ';
 import {
     getHistorico,
@@ -23,6 +24,10 @@ function SeccionCMJ({ titulo, consultar, vacio, children }) {
             });
         return () => { activa = false; };
     }, [consultar, actualizacion]);
+
+    useActualizarLista(() => {
+        setActualizacion(valor => valor + 1);
+    });
 
     const actualizar = () => {
         setConsulta({ cargando: true });

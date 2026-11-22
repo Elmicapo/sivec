@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import useActualizarLista from '../hooks/useActualizarLista';
 import { listarSolicitudesVinculacion, resolverSolicitudVinculacion } from '../services/entrenadoresService';
 
 const SolicitudesEntrenadores = () => {
@@ -8,18 +9,26 @@ const SolicitudesEntrenadores = () => {
     const [resolviendo, setResolviendo] = useState(false);
     const [errorCarga, setErrorCarga] = useState(false);
 
-    const cargarSolicitudes = async () => {
+    const consulta = useRef(0);
+
+    const cargarSolicitudes = async (silenciosa = false) => {
+        const turno = ++consulta.current;
         try {
-            setCargando(true);
-            setMensaje(null);
-            setErrorCarga(false);
+            if (!silenciosa) {
+                setCargando(true);
+                setMensaje(null);
+                setErrorCarga(false);
+            }
             const respuesta = await listarSolicitudesVinculacion();
+            if (turno !== consulta.current) return;
+            setErrorCarga(false);
             setSolicitudes(respuesta.data.data || []);
         } catch (error) {
+            if (silenciosa || turno !== consulta.current) return;
             setErrorCarga(true);
             setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudieron cargar las solicitudes.' });
         } finally {
-            setCargando(false);
+            if (turno === consulta.current) setCargando(false);
         }
     };
 
@@ -28,6 +37,7 @@ const SolicitudesEntrenadores = () => {
         setMensaje(null);
         try {
             const { data } = await resolverSolicitudVinculacion(id, estado);
+            consulta.current += 1;
             setSolicitudes(actuales => actuales.filter(sol => sol.id_solicitud_vinculacion !== id));
             setMensaje({ tipo: 'success', texto: data.message });
         } catch (error) {
@@ -40,6 +50,10 @@ const SolicitudesEntrenadores = () => {
     useEffect(() => {
         cargarSolicitudes();
     }, []);
+
+    useActualizarLista(() => {
+        if (!cargando && !resolviendo) return cargarSolicitudes(true);
+    });
 
     return (
         <div className="offer-page min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -55,7 +69,7 @@ const SolicitudesEntrenadores = () => {
                 <section aria-labelledby="solicitudes-pendientes" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
                         <h2 id="solicitudes-pendientes" className="text-lg font-semibold text-gray-800">Solicitudes pendientes</h2>
-                        <button type="button" onClick={cargarSolicitudes} disabled={cargando || resolviendo} className="offer-button offer-button-secondary">
+                        <button type="button" onClick={() => cargarSolicitudes()} disabled={cargando || resolviendo} className="offer-button offer-button-secondary">
                             Actualizar
                         </button>
                     </header>
