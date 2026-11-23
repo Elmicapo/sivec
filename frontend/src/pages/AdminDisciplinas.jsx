@@ -104,7 +104,10 @@ export default function AdminDisciplinas() {
 
     const cambiarEstado = async disciplina => {
         const activar = disciplina.estado === 'INACTIVA';
-        if (!activar && !window.confirm(`¿Dar de baja ${disciplina.nombre} y desactivar sus cronogramas?`)) return;
+        const confirmacion = activar
+            ? `${disciplina.nombre} está dada de baja. ¿Quieres reactivarla? Sus cronogramas se gestionan por separado.`
+            : `¿Dar de baja ${disciplina.nombre} y desactivar sus cronogramas?`;
+        if (!window.confirm(confirmacion)) return;
         const mostrarEstado = estado => setDisciplinas(actuales => actuales.map(fila =>
             fila.id_disciplina === disciplina.id_disciplina ? { ...fila, estado } : fila
         ));
