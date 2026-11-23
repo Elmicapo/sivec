@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { actualizarDisciplina, buscarDisciplinas, crearDisciplina, darDeBaja } from '../services/disciplinasService';
+import { actualizarDisciplina, listarDisciplinasAdministracion, crearDisciplina, darDeBaja, reactivarDisciplina } from '../services/disciplinasService';
+import { getEscenarios } from '../services/veeduriaService';
 
-const FORM_INICIAL = { nombre: '', categoria: 'DEPORTIVA', poblacion_objetivo: '', cupo_maximo: '' };
+const FORM_INICIAL = { nombre: '', categoria: 'DEPORTIVA', poblacion_objetivo: '', cupo_maximo: '', ids_escenarios: [] };
 
 export default function AdminDisciplinas() {
     const [disciplinas, setDisciplinas] = useState(null);
+    const [escenarios, setEscenarios] = useState(null);
+    const [errorEscenarios, setErrorEscenarios] = useState('');
     const [form, setForm] = useState(FORM_INICIAL);
     const [editando, setEditando] = useState(null);
     const [cargando, setCargando] = useState(true);
@@ -16,7 +19,7 @@ export default function AdminDisciplinas() {
         setCargando(true);
         setErrorLista('');
         try {
-            const { data } = await buscarDisciplinas();
+            const { data } = await listarDisciplinasAdministracion();
             setDisciplinas(data.data);
         } catch (error) {
             setErrorLista(error.response?.data?.message || 'No se pudieron cargar las disciplinas.');
@@ -27,10 +30,13 @@ export default function AdminDisciplinas() {
 
     useEffect(() => {
         let activo = true;
-        buscarDisciplinas()
+        listarDisciplinasAdministracion()
             .then(({ data }) => { if (activo) setDisciplinas(data.data); })
             .catch(error => { if (activo) setErrorLista(error.response?.data?.message || 'No se pudieron cargar las disciplinas.'); })
             .finally(() => { if (activo) setCargando(false); });
+        getEscenarios()
+            .then(({ data }) => { if (activo) setEscenarios(data.data); })
+            .catch(() => { if (activo) setErrorEscenarios('No se pudo cargar el catálogo de escenarios.'); });
         return () => { activo = false; };
     }, []);
 
@@ -51,7 +57,8 @@ export default function AdminDisciplinas() {
             nombre: disciplina.nombre,
             categoria: disciplina.categoria,
             poblacion_objetivo: disciplina.poblacion_objetivo ?? '',
-            cupo_maximo: disciplina.cupo_maximo
+            cupo_maximo: disciplina.cupo_maximo,
+            ids_escenarios: (disciplina.ids_escenarios || []).map(Number)
         });
         setMensaje(null);
         document.getElementById('disciplina-nombre')?.focus();
@@ -60,6 +67,7 @@ export default function AdminDisciplinas() {
     const guardar = async event => {
         event.preventDefault();
         const datos = { ...form, nombre: form.nombre.trim(), poblacion_objetivo: form.poblacion_objetivo.trim(), cupo_maximo: Number(form.cupo_maximo) };
+        if (!escenarios) delete datos.ids_escenarios;
         if (!datos.nombre || !Number.isSafeInteger(datos.cupo_maximo) || datos.cupo_maximo < 1) {
             setMensaje({ tipo: 'error', texto: 'Escribe un nombre y un cupo entero mayor que cero.' });
             return;
@@ -79,17 +87,23 @@ export default function AdminDisciplinas() {
         }
     };
 
-    const desactivar = async disciplina => {
-        if (!window.confirm(`¿Dar de baja ${disciplina.nombre} y desactivar sus cronogramas?`)) return;
+    const cambiarEstado = async disciplina => {
+        const activar = disciplina.estado === 'INACTIVA';
+        if (!activar && !window.confirm(`¿Dar de baja ${disciplina.nombre} y desactivar sus cronogramas?`)) return;
         setOcupado(true);
         setMensaje(null);
         try {
-            const { data } = await darDeBaja(disciplina.id_disciplina);
+            const operacion = activar ? reactivarDisciplina : darDeBaja;
+            const { data } = await operacion(disciplina.id_disciplina);
+            setDisciplinas(actuales => actuales.map(fila =>
+                fila.id_disciplina === disciplina.id_disciplina
+                    ? { ...fila, estado: activar ? 'ACTIVA' : 'INACTIVA' }
+                    : fila
+            ));
             if (editando === disciplina.id_disciplina) cancelar();
             setMensaje({ tipo: 'success', texto: data.message });
-            await cargar();
         } catch (error) {
-            setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo dar de baja la disciplina.' });
+            setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo cambiar el estado de la disciplina.' });
         } finally {
             setOcupado(false);
         }
@@ -126,6 +140,32 @@ export default function AdminDisciplinas() {
                                 <input name="cupo_maximo" type="number" min="1" step="1" value={form.cupo_maximo} onChange={cambiar} required />
                             </label>
                         </fieldset>
+                        <fieldset disabled={ocupado} className="mt-5 space-y-2">
+                            <legend className="font-semibold">Escenarios</legend>
+                            {errorEscenarios && <p role="alert">{errorEscenarios}</p>}
+                            {!escenarios && !errorEscenarios && <p role="status">Cargando escenarios…</p>}
+                            {escenarios?.length === 0 && <p>No hay escenarios disponibles.</p>}
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                {escenarios?.map(escenario => {
+                                    const id = Number(escenario.id_escenario);
+                                    return (
+                                        <label key={id} className="flex items-center gap-2">
+                                            <input type="checkbox" checked={form.ids_escenarios.includes(id)}
+                                                onChange={event => {
+                                                    const seleccionado = event.target.checked;
+                                                    setForm(actual => ({
+                                                        ...actual,
+                                                        ids_escenarios: seleccionado
+                                                            ? [...actual.ids_escenarios, id]
+                                                            : actual.ids_escenarios.filter(valor => valor !== id)
+                                                    }));
+                                                }} />
+                                            {escenario.nombre}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </fieldset>
                         {mensaje && <p className={`sivec-alert sivec-alert-${mensaje.tipo} mt-4`} role={mensaje.tipo === 'error' ? 'alert' : 'status'}>{mensaje.texto}</p>}
                         <div className="mt-6 flex flex-wrap justify-end gap-3">
                             {editando && <button type="button" className="offer-button offer-button-secondary" onClick={cancelar} disabled={ocupado}>Cancelar edición</button>}
@@ -136,18 +176,18 @@ export default function AdminDisciplinas() {
                     </form>
                 </section>
 
-                <section aria-labelledby="disciplinas-activas" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <section aria-labelledby="lista-disciplinas" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
-                        <h2 id="disciplinas-activas" className="font-semibold">Disciplinas activas</h2>
+                        <h2 id="lista-disciplinas" className="font-semibold">Disciplinas registradas</h2>
                         <button type="button" className="offer-button offer-button-secondary" onClick={cargar} disabled={ocupado || cargando}>Actualizar</button>
                     </header>
                     {errorLista && <p role="alert" className="sivec-alert sivec-alert-error m-6">{errorLista}</p>}
                     {cargando && <p role="status" className="p-6">Cargando disciplinas…</p>}
-                    {disciplinas && !errorLista && !cargando && (disciplinas.length ? (
+                    {disciplinas && !cargando && (disciplinas.length ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase">
-                                    <tr>{['Nombre', 'Categoría', 'Población', 'Cupos usados', 'Escenarios', 'Acciones'].map(titulo => (
+                                    <tr>{['Nombre', 'Categoría', 'Población', 'Cupos usados', 'Escenarios', 'Estado', 'Acciones'].map(titulo => (
                                         <th scope="col" key={titulo} className="px-6 py-3">{titulo}</th>
                                     ))}</tr>
                                 </thead>
@@ -159,16 +199,20 @@ export default function AdminDisciplinas() {
                                             <td className="px-6 py-4">{disciplina.poblacion_objetivo || '—'}</td>
                                             <td className="px-6 py-4">{disciplina.inscritos}/{disciplina.cupo_maximo}</td>
                                             <td className="px-6 py-4">{disciplina.escenarios || '—'}</td>
+                                            <td className="px-6 py-4">{disciplina.estado === 'INACTIVA' ? 'Dada de baja' : 'Activa'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap space-x-3">
                                                 <button type="button" onClick={() => editar(disciplina)} disabled={ocupado} className="offer-table-action">Editar</button>
-                                                <button type="button" onClick={() => desactivar(disciplina)} disabled={ocupado} className="offer-table-action danger">Dar de baja</button>
+                                                <button type="button" onClick={() => cambiarEstado(disciplina)} disabled={ocupado || cargando}
+                                                    className={disciplina.estado === 'INACTIVA' ? 'offer-table-action' : 'offer-table-action danger'}>
+                                                    {disciplina.estado === 'INACTIVA' ? 'Reactivar' : 'Dar de baja'}
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-                    ) : <p className="p-6 text-gray-600">No hay disciplinas activas.</p>)}
+                    ) : <p className="p-6 text-gray-600">No hay disciplinas registradas.</p>)}
                 </section>
             </div>
         </main>

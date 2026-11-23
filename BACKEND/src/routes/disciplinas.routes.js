@@ -5,6 +5,8 @@ const {
     obtenerCronogramaConsolidado,
     obtenerHistorialDeportista,
     buscarDisciplinas,
+    administrarDisciplinas,
+    reactivarDisciplina,
     crearDisciplina,
     actualizarDisciplina,
     darDeBajaDisciplina
@@ -25,6 +27,8 @@ router.get('/', buscarDisciplinas);
 router.get('/mi-historial', verificarToken, permitirRoles('DEPORTISTA'), obtenerHistorialDeportista);
 
 // Solo Administrativo
+router.get('/administracion', verificarToken, permitirRoles('ADMINISTRATIVO'), administrarDisciplinas);
+router.patch('/:id/reactivar', verificarToken, permitirRoles('ADMINISTRATIVO'), reactivarDisciplina);
 router.post('/', verificarToken, permitirRoles('ADMINISTRATIVO'), crearDisciplina);
 router.put('/:id', verificarToken, permitirRoles('ADMINISTRATIVO'), actualizarDisciplina);
 router.delete('/:id', verificarToken, permitirRoles('ADMINISTRATIVO'), darDeBajaDisciplina);

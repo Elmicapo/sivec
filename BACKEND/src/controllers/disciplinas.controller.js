@@ -57,9 +57,11 @@ const crearHistorialDeportistaController = ({ database = db } = {}) => async (re
 const obtenerHistorialDeportista = crearHistorialDeportistaController();
 
 // Búsqueda pública: ?nombre=futbol&categoria=DEPORTIVA&ubicacion=coliseo
-const buscarDisciplinas = async (req, res) => {
+const consultarDisciplinas = incluirInactivas => async (req, res) => {
     const { nombre, categoria, ubicacion } = req.query;
     let sql = `SELECT d.id_disciplina, d.nombre, d.categoria, d.poblacion_objetivo, d.cupo_maximo,
+                      ${incluirInactivas ? `d.estado, (SELECT JSON_ARRAYAGG(id_escenario)
+                          FROM disciplina_escenario WHERE id_disciplina = d.id_disciplina) AS ids_escenarios,` : ''}
                       (SELECT COUNT(*) FROM inscripcion i
                         WHERE i.id_disciplina = d.id_disciplina AND i.estado = 'ACTIVA') AS inscritos,
                       (SELECT GROUP_CONCAT(e.nombre ORDER BY e.nombre SEPARATOR ', ')
@@ -67,7 +69,7 @@ const buscarDisciplinas = async (req, res) => {
                          JOIN escenario e ON e.id_escenario = de.id_escenario
                         WHERE de.id_disciplina = d.id_disciplina) AS escenarios
                FROM disciplina d
-               WHERE d.estado = 'ACTIVA'`;
+               WHERE ${incluirInactivas ? '1=1' : "d.estado = 'ACTIVA'"}`;
     const params = [];
 
     if (nombre)    { sql += ' AND d.nombre LIKE ?'; params.push(`%${nombre}%`); }
@@ -97,34 +99,85 @@ const buscarDisciplinas = async (req, res) => {
 };
 
 
+const buscarDisciplinas = consultarDisciplinas(false);
+const administrarDisciplinas = consultarDisciplinas(true);
+
 const esCupoValido = valor =>
     (typeof valor === 'number' || typeof valor === 'string')
     && Number.isInteger(Number(valor)) && Number(valor) > 0 && Number(valor) <= 2147483647;
 
+const idsEscenariosValidos = ids => ids === undefined || (
+    Array.isArray(ids) && ids.every(id => Number.isSafeInteger(id) && id > 0)
+);
+
+async function guardarEscenarios(conn, idDisciplina, ids) {
+    if (ids === undefined) return null;
+    await assertSchemaObjectsAvailable(conn, ['disciplina_escenario', 'escenario', 'cronograma']);
+    const seleccion = [...new Set(ids)];
+    const [actuales] = await conn.query(
+        'SELECT id_escenario FROM disciplina_escenario WHERE id_disciplina = ?', [idDisciplina]);
+    const actualesIds = new Set(actuales.map(escenario => Number(escenario.id_escenario)));
+    const quitar = [...actualesIds].filter(id => !seleccion.includes(id));
+    if (quitar.length) {
+        const [[cronograma]] = await conn.query(
+            'SELECT 1 FROM cronograma WHERE activo AND id_disciplina = ? AND id_escenario IN (?) LIMIT 1',
+            [idDisciplina, quitar]);
+        if (cronograma) return 'Da de baja los cronogramas activos del escenario antes de quitarlo.';
+        await conn.query(
+            'DELETE FROM disciplina_escenario WHERE id_disciplina = ? AND id_escenario IN (?)',
+            [idDisciplina, quitar]);
+    }
+    const agregar = seleccion.filter(id => !actualesIds.has(id));
+    if (agregar.length) {
+        const [escenarios] = await conn.query(
+            'SELECT id_escenario FROM escenario WHERE activo AND id_escenario IN (?) FOR SHARE', [agregar]);
+        if (escenarios.length !== agregar.length) return 'Selecciona escenarios activos del catálogo.';
+        await conn.query('INSERT INTO disciplina_escenario (id_disciplina, id_escenario) VALUES ?',
+            [agregar.map(id => [idDisciplina, id])]);
+    }
+    return null;
+}
+
 const crearDisciplina = async (req, res) => {
-    const { nombre, categoria, poblacion_objetivo, cupo_maximo } = req.body;
+    const { nombre, categoria, poblacion_objetivo, cupo_maximo, ids_escenarios } = req.body;
     if (typeof nombre !== 'string' || !nombre.trim() || !['DEPORTIVA', 'CULTURAL'].includes(categoria)
         || !esCupoValido(cupo_maximo)) {
         return res.status(400).json({ success: false, message: 'Nombre, categoría (DEPORTIVA/CULTURAL) y cupo mayor a 0 son obligatorios' });
     }
+    if (!idsEscenariosValidos(ids_escenarios)) {
+        return res.status(400).json({ success: false, message: 'La lista de escenarios es inválida.' });
+    }
+    let conn;
     try {
-        await assertSchemaObjectsAvailable(db, ['disciplina']);
-        const [r] = await db.query(
+        conn = await db.getConnection();
+        await assertSchemaObjectsAvailable(conn, ['disciplina']);
+        await conn.beginTransaction();
+        const [r] = await conn.query(
             'INSERT INTO disciplina (nombre, categoria, poblacion_objetivo, cupo_maximo) VALUES (?, ?, ?, ?)',
             [nombre.trim(), categoria, poblacion_objetivo || null, Number(cupo_maximo)]);
+        const errorEscenarios = await guardarEscenarios(conn, r.insertId, ids_escenarios);
+        if (errorEscenarios) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: errorEscenarios });
+        }
+        await conn.commit();
         res.status(201).json({ success: true, message: 'Disciplina creada', id_disciplina: r.insertId });
     } catch (error) {
+        await conn?.rollback();
         if (responderEsquemaNoDisponible(res, error, 'El módulo de disciplinas aún no está habilitado.')) return;
         if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ success: false, message: 'Ya existe una disciplina con ese nombre' });
+            return res.status(409).json({ success: false,
+                message: 'Ya existe una disciplina con ese nombre. Si está dada de baja, usa Reactivar en la lista.' });
         }
         return responderErrorInterno(res, 'disciplinas.crear', 'Error al crear la disciplina')(error);
+    } finally {
+        conn?.release();
     }
 };
 
 const actualizarDisciplina = async (req, res) => {
     const { id } = req.params;
-    const { nombre, categoria, poblacion_objetivo, cupo_maximo } = req.body;
+    const { nombre, categoria, poblacion_objetivo, cupo_maximo, ids_escenarios } = req.body;
     if (cupo_maximo != null && !esCupoValido(cupo_maximo)) {
         return res.status(400).json({ success: false, message: 'El cupo debe ser un entero mayor que cero.' });
     }
@@ -134,31 +187,64 @@ const actualizarDisciplina = async (req, res) => {
     if (categoria && !['DEPORTIVA', 'CULTURAL'].includes(categoria)) {
         return res.status(400).json({ success: false, message: 'Categoría inválida' });
     }
+    if (!idsEscenariosValidos(ids_escenarios)) {
+        return res.status(400).json({ success: false, message: 'La lista de escenarios es inválida.' });
+    }
+    let conn;
     try {
-        await assertSchemaObjectsAvailable(db, ['disciplina', 'inscripcion']);
-        if (cupo_maximo) {
-            const [[{ n }]] = await db.query(
+        conn = await db.getConnection();
+        await assertSchemaObjectsAvailable(conn, ['disciplina', 'inscripcion']);
+        await conn.beginTransaction();
+        const [[existente]] = await conn.query('SELECT id_disciplina FROM disciplina WHERE id_disciplina = ? FOR UPDATE', [id]);
+        if (!existente) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, message: 'Disciplina no encontrada' });
+        }
+        if (cupo_maximo != null) {
+            const [[{ n }]] = await conn.query(
                 "SELECT COUNT(*) AS n FROM inscripcion WHERE id_disciplina = ? AND estado = 'ACTIVA'", [id]);
             if (cupo_maximo < n) {
+                await conn.rollback();
                 return res.status(400).json({ success: false, message: `Hay ${n} inscritos activos; el cupo no puede ser menor` });
             }
         }
-        const [r] = await db.query(
+        await conn.query(
             `UPDATE disciplina SET nombre = COALESCE(?, nombre), categoria = COALESCE(?, categoria),
                     poblacion_objetivo = IF(?, ?, poblacion_objetivo), cupo_maximo = COALESCE(?, cupo_maximo)
              WHERE id_disciplina = ?`,
             [nombre?.trim() || null, categoria || null, poblacion_objetivo !== undefined,
                 poblacion_objetivo || null, cupo_maximo == null ? null : Number(cupo_maximo), id]);
-        if (r.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'Disciplina no encontrada' });
+        const errorEscenarios = await guardarEscenarios(conn, id, ids_escenarios);
+        if (errorEscenarios) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: errorEscenarios });
         }
+        await conn.commit();
         res.json({ success: true, message: 'Disciplina actualizada' });
     } catch (error) {
+        await conn?.rollback();
         if (responderEsquemaNoDisponible(res, error, 'El módulo de disciplinas aún no está habilitado.')) return;
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ success: false, message: 'Ya existe una disciplina con ese nombre' });
         }
         return responderErrorInterno(res, 'disciplinas.actualizar', 'Error al actualizar')(error);
+    } finally {
+        conn?.release();
+    }
+};
+
+const reactivarDisciplina = async (req, res) => {
+    try {
+        await assertSchemaObjectsAvailable(db, ['disciplina']);
+        const [resultado] = await db.query(
+            "UPDATE disciplina SET estado = 'ACTIVA' WHERE id_disciplina = ?", [req.params.id]);
+        if (!resultado.affectedRows) {
+            return res.status(404).json({ success: false, message: 'Disciplina no encontrada' });
+        }
+        res.json({ success: true, message: 'Disciplina reactivada. Revisa sus cronogramas antes de volver a programarla.' });
+    } catch (error) {
+        if (responderEsquemaNoDisponible(res, error, 'El módulo de disciplinas aún no está habilitado.')) return;
+        return responderErrorInterno(res, 'disciplinas.reactivar', 'Error al reactivar la disciplina')(error);
     }
 };
 
@@ -234,6 +320,8 @@ module.exports = {
     obtenerCronogramaConsolidado,
     obtenerHistorialDeportista,
     buscarDisciplinas,
+    administrarDisciplinas,
+    reactivarDisciplina,
     crearHistorialDeportistaController,
     crearDisciplina,
     actualizarDisciplina,

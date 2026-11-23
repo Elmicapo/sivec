@@ -53,7 +53,7 @@ const validar = (c) => {
 
 // Comprueba referencias activas y relaciones previamente aprobadas.
 const validarReferencias = async (conn, c, usuario) => {
-    const [[d]] = await conn.query("SELECT 1 AS ok FROM disciplina WHERE id_disciplina = ? AND estado = 'ACTIVA'", [c.id_disciplina]);
+    const [[d]] = await conn.query("SELECT 1 AS ok FROM disciplina WHERE id_disciplina = ? AND estado = 'ACTIVA' FOR SHARE", [c.id_disciplina]);
     if (!d) return 'La disciplina no existe o está inactiva';
     const [[e]] = await conn.query('SELECT 1 AS ok FROM escenario WHERE id_escenario = ? AND activo', [c.id_escenario]);
     if (!e) return 'El escenario no existe o está inactivo';
@@ -129,11 +129,13 @@ const crearCronograma = async (req, res) => {
     let transactionStarted = false;
     try {
         await assertCronogramaTables(conn);
-        const problema = (await validarReferencias(conn, c, req.usuario)) || (await hayConflicto(conn, c, 0));
-        if (problema) return res.status(400).json({ success: false, message: problema });
-
         await conn.beginTransaction();
         transactionStarted = true;
+        const problema = (await validarReferencias(conn, c, req.usuario)) || (await hayConflicto(conn, c, 0));
+        if (problema) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: problema });
+        }
         const [r] = await conn.query(
             `INSERT INTO cronograma (id_disciplina, id_escenario, id_entrenador, dia_semana,
                                      hora_inicio, hora_fin, vigencia_desde, vigencia_hasta)
@@ -170,11 +172,13 @@ const actualizarCronograma = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Solo puedes modificar tus propios horarios' });
         }
 
-        const problema = (await validarReferencias(conn, c, req.usuario)) || (await hayConflicto(conn, c, Number(id)));
-        if (problema) return res.status(400).json({ success: false, message: problema });
-
         await conn.beginTransaction();
         transactionStarted = true;
+        const problema = (await validarReferencias(conn, c, req.usuario)) || (await hayConflicto(conn, c, Number(id)));
+        if (problema) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: problema });
+        }
         await conn.query(
             `UPDATE cronograma
                 SET id_disciplina = ?, id_escenario = ?, id_entrenador = ?, dia_semana = ?,
