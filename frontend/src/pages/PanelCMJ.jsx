@@ -116,36 +116,42 @@ export default function PanelCMJ() {
                     </SeccionCMJ>
                 </div>
 
-                <SeccionCMJ key={`historico-${actualizacion}`} titulo="Histórico de veedurías" consultar={getHistorico} vacio="Todavía no hay reportes en el histórico.">
-                    {filas => (
-                        <div className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2" role="region" aria-label="Tabla del histórico de veedurías" tabIndex={0}>
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
-                                    <tr>
-                                        {['Escenario', 'Reportante', 'Estado propuesto', 'Estado', 'Validó', 'Fecha del reporte', 'Observación'].map(columna => (
-                                            <th key={columna} scope="col" className="px-5 py-3 font-medium whitespace-nowrap">{columna}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="text-sm divide-y divide-gray-100">
-                                    {filas.map(reporte => (
-                                        <tr key={reporte.id_reporte} className="hover:bg-gray-50">
-                                            <td className="px-5 py-4 font-semibold">{reporte.escenario}</td>
-                                            <td className="px-5 py-4">{reporte.reportante || '—'}</td>
-                                            <td className="px-5 py-4">{reporte.estado_propuesto}</td>
-                                            <td className="px-5 py-4">{reporte.estado_reporte}</td>
-                                            <td className="px-5 py-4">{reporte.validado_por || '—'}</td>
-                                            <td className="px-5 py-4 whitespace-nowrap">{reporte.fecha_reporte}</td>
-                                            <td className="px-5 py-4">{reporte.observacion_cmj || '—'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </SeccionCMJ>
+                <HistoricoVeedurias key={`historico-${actualizacion}`} />
                 {revision && <RevisionCMJ {...revision} cerrar={() => setRevision(null)} finalizar={finalizar} />}
             </div>
         </div>
+    );
+}
+
+export function HistoricoVeedurias() {
+    return (
+        <SeccionCMJ titulo="Histórico de veedurías" consultar={getHistorico} vacio="Todavía no hay reportes en el histórico.">
+            {filas => (
+                <div className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2" role="region" aria-label="Tabla del histórico de veedurías" tabIndex={0}>
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+                            <tr>
+                                {['Escenario', 'Reportante', 'Estado propuesto', 'Estado', 'Validó', 'Fecha del reporte', 'Observación'].map(columna => (
+                                    <th key={columna} scope="col" className="px-5 py-3 font-medium whitespace-nowrap">{columna}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm divide-y divide-gray-100">
+                            {filas.map(reporte => (
+                                <tr key={reporte.id_reporte} className="hover:bg-gray-50">
+                                    <td className="px-5 py-4 font-semibold">{reporte.escenario}</td>
+                                    <td className="px-5 py-4">{reporte.reportante || '—'}</td>
+                                    <td className="px-5 py-4">{reporte.estado_propuesto}</td>
+                                    <td className="px-5 py-4">{reporte.estado_reporte}</td>
+                                    <td className="px-5 py-4">{reporte.validado_por || '—'}</td>
+                                    <td className="px-5 py-4 whitespace-nowrap">{reporte.fecha_reporte}</td>
+                                    <td className="px-5 py-4">{reporte.observacion_cmj || '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </SeccionCMJ>
     );
 }

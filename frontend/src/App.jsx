@@ -10,6 +10,7 @@ import AdminDisciplinas from './pages/AdminDisciplinas';
 import SolicitudesEntrenadores from './pages/SolicitudesEntrenadores';
 import MiHistorial from './pages/MiHistorial';
 import PanelCMJ from './pages/PanelCMJ';
+import HistoricoReportes from './pages/HistoricoReportes';
 import Entrenadores from './pages/Entrenadores';
 import Cronogramas from './pages/Cronogramas';
 import PanelEntrenador from './pages/PanelEntrenador';
@@ -105,6 +106,7 @@ function App() {
         <Route path="/entrenador" element={<RutaProtegida roles={['ENTRENADOR']}><PanelEntrenador /></RutaProtegida>} />
         <Route path="/entrenador/solicitudes" element={<RutaProtegida roles={['ENTRENADOR']}><MisSolicitudesEntrenador /></RutaProtegida>} />
         <Route path="/deportista" element={<RutaProtegida roles={['DEPORTISTA']}><MiHistorial /></RutaProtegida>} />
+        <Route path="/historico-reportes" element={<RutaProtegida><HistoricoReportes /></RutaProtegida>} />
         <Route path="/cmj" element={<RutaProtegida roles={['CMJ']}><PanelCMJ /></RutaProtegida>} />
         <Route path="*" element={
           <main className="offer-page">

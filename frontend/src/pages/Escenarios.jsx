@@ -525,11 +525,11 @@ export default function Escenarios() {
               <Link className="home-button home-button-primary" to="/reportar">
                 Reportar el estado de un escenario <Icono nombre="flecha" />
               </Link>
-              <Link className="home-button home-button-community-secondary" to="/cmj">
+              <Link className="home-button home-button-community-secondary" to="/historico-reportes">
                 Consultar histórico de reportes
               </Link>
             </div>
-            <p className="home-community-note">El histórico está disponible para usuarios autorizados del CMJ.</p>
+            <p className="home-community-note">Acceso para el CMJ y usuarios administrativos.</p>
           </div>
         </div>
       </section>
@@ -546,7 +546,7 @@ export default function Escenarios() {
           <Link to="/#estado-escenarios">Escenarios</Link>
           <Link to="/#cronogramas">Cronogramas</Link>
           <Link to="/reportar">Veeduría</Link>
-          <Link to="/cmj">Histórico de reportes (CMJ)</Link>
+          <Link to="/historico-reportes">Histórico de reportes</Link>
           <Link to="/login">Iniciar sesión</Link>
           <Link to="/registro">Registrarse</Link>
         </div>
