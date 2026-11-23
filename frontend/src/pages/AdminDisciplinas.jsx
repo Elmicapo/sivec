@@ -63,6 +63,18 @@ export default function AdminDisciplinas() {
         return () => { activo = false; };
     }, []);
 
+    const actualizarDatos = async () => {
+        await Promise.all([
+            cargar(),
+            getEscenarios()
+                .then(({ data }) => {
+                    setEscenarios(data.data);
+                    setErrorEscenarios('');
+                })
+                .catch(() => setErrorEscenarios('No se pudo cargar el catálogo de escenarios.'))
+        ]);
+    };
+
     const cambiar = event => {
         const { name, value } = event.target;
         setForm(actual => ({ ...actual, [name]: value }));
@@ -158,6 +170,10 @@ export default function AdminDisciplinas() {
                     <span className="block mb-2 text-sm font-semibold uppercase tracking-wide text-green-700">Administración de oferta</span>
                     <h1>Administrar disciplinas</h1>
                     <p>Crea disciplinas deportivas o culturales y gestiona su configuración.</p>
+                    <button type="button" className="offer-button offer-button-secondary mt-4 w-full sm:w-auto"
+                        onClick={actualizarDatos} disabled={ocupado || cargando}>
+                        {cargando ? 'Actualizando datos…' : 'Actualizar datos'}
+                    </button>
                 </header>
 
                 <section aria-labelledby="formulario-disciplina" className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -183,7 +199,7 @@ export default function AdminDisciplinas() {
                             </label>
                         </fieldset>
                         <fieldset disabled={ocupado} className="mt-5 space-y-2">
-                            <legend className="font-semibold">Escenarios</legend>
+                            <legend className="font-semibold">Vincular escenarios deportivos o culturales</legend>
                             {errorEscenarios && <p role="alert">{errorEscenarios}</p>}
                             {!escenarios && !errorEscenarios && <p role="status">Cargando escenarios…</p>}
                             {escenarios?.length === 0 && <p>No hay escenarios disponibles.</p>}
@@ -191,7 +207,7 @@ export default function AdminDisciplinas() {
                                 {escenarios?.map(escenario => {
                                     const id = Number(escenario.id_escenario);
                                     return (
-                                        <label key={id} className="flex items-center gap-2">
+                                        <label key={id} className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 px-3">
                                             <input type="checkbox" checked={form.ids_escenarios.includes(id)}
                                                 onChange={event => {
                                                     const seleccionado = event.target.checked;
@@ -221,7 +237,6 @@ export default function AdminDisciplinas() {
                 <section aria-labelledby="lista-disciplinas" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
                         <h2 id="lista-disciplinas" className="font-semibold">Disciplinas registradas</h2>
-                        <button type="button" className="offer-button offer-button-secondary" onClick={() => cargar()} disabled={ocupado || cargando}>Actualizar</button>
                     </header>
                     {errorLista && <p role="alert" className="sivec-alert sivec-alert-error m-6">{errorLista}</p>}
                     {cargando && <p role="status" className="p-6">Cargando disciplinas…</p>}

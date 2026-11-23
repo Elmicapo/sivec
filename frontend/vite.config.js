@@ -9,6 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       injectRegister: 'script',
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'branding/SIVEC_isotipo.svg', 'icons/*.png'],
       manifest: {
         id: '/',
