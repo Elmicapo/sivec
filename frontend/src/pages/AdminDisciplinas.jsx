@@ -137,10 +137,10 @@ export default function AdminDisciplinas() {
             const { data } = await operacion(disciplina.id_disciplina);
             avisarCambioDisciplinas();
             if (editando === disciplina.id_disciplina) cancelar();
-            setMensaje({ tipo: 'success', texto: data.message });
+            setMensaje({ tipo: 'success', texto: data.message, enLista: true });
         } catch (error) {
             mostrarEstado(disciplina.estado);
-            setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo cambiar el estado de la disciplina.' });
+            setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo cambiar el estado de la disciplina.', enLista: true });
         } finally {
             setOcupado(false);
         }
@@ -150,7 +150,7 @@ export default function AdminDisciplinas() {
         <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => editar(disciplina)} disabled={ocupado} className="offer-table-action">Editar</button>
             <button type="button" onClick={() => setCambioPendiente(disciplina)} disabled={ocupado || cargando}
-                className={disciplina.estado === 'INACTIVA' ? 'offer-table-action' : 'offer-table-action danger'}>
+                className={`offer-table-action min-h-11 ${disciplina.estado === 'INACTIVA' ? '' : 'danger'}`}>
                 {disciplina.estado === 'INACTIVA' ? 'Reactivar' : 'Dar de baja'}
             </button>
         </div>
@@ -224,7 +224,7 @@ export default function AdminDisciplinas() {
                                 })}
                             </div>
                         </fieldset>
-                        {mensaje && <p className={`sivec-alert sivec-alert-${mensaje.tipo} mt-4`} role={mensaje.tipo === 'error' ? 'alert' : 'status'}>{mensaje.texto}</p>}
+                        {mensaje && !mensaje.enLista && <p className={`sivec-alert sivec-alert-${mensaje.tipo} mt-4`} role={mensaje.tipo === 'error' ? 'alert' : 'status'}>{mensaje.texto}</p>}
                         <div className="mt-6 flex flex-wrap justify-end gap-3">
                             {editando && <button type="button" className="offer-button offer-button-secondary" onClick={cancelar} disabled={ocupado}>Cancelar edición</button>}
                             <button className="offer-button offer-button-primary" disabled={ocupado}>
@@ -238,6 +238,8 @@ export default function AdminDisciplinas() {
                     <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
                         <h2 id="lista-disciplinas" className="font-semibold">Disciplinas registradas</h2>
                     </header>
+                    {mensaje?.enLista && <p className={`sivec-alert sivec-alert-${mensaje.tipo} m-4`}
+                        role={mensaje.tipo === 'error' ? 'alert' : 'status'}>{mensaje.texto}</p>}
                     {errorLista && <p role="alert" className="sivec-alert sivec-alert-error m-6">{errorLista}</p>}
                     {cargando && <p role="status" className="p-6">Cargando disciplinas…</p>}
                     {disciplinas && !cargando && (disciplinas.length ? (
@@ -301,13 +303,13 @@ export default function AdminDisciplinas() {
                             ? `${cambioPendiente.nombre} está dada de baja. ¿Quieres reactivarla? Sus cronogramas se gestionan por separado.`
                             : `¿Dar de baja ${cambioPendiente.nombre} y desactivar sus cronogramas?`}
                     </p>
-                    <div className="mt-6 flex flex-wrap justify-end gap-3">
+                    <form className="mt-6 grid grid-cols-2 gap-3" onSubmit={event => { event.preventDefault(); confirmarCambio(); }}>
                         <button type="button" autoFocus className="offer-button offer-button-secondary"
                             onClick={() => setCambioPendiente(null)}>Cancelar</button>
-                        <button type="button" className="offer-button offer-button-primary" onClick={confirmarCambio}>
+                        <button type="submit" className="offer-button offer-button-primary min-h-11">
                             {reactivacionPendiente ? 'Reactivar' : 'Dar de baja'}
                         </button>
-                    </div>
+                    </form>
                 </dialog>
             )}
         </main>

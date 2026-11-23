@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { escucharCambios } = require('../services/eventosDisciplinas');
 const {
     obtenerDisciplinasActivas,
     obtenerCronogramaConsolidado,
@@ -19,6 +20,7 @@ const {
 const { verificarToken, permitirRoles } = require('../middlewares/authMiddleware');
 
 // Públicas
+router.get('/eventos', escucharCambios);
 router.get('/activas', obtenerDisciplinasActivas);
 router.get('/cronograma', obtenerCronogramaConsolidado);
 router.get('/', buscarDisciplinas);

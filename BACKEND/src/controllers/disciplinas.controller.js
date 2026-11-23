@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { publicarCambioDisciplina } = require('../services/eventosDisciplinas');
 const { responderErrorInterno, registrarError } = require('../utils/safeError');
 const { assertSchemaObjectsAvailable, SchemaNotReadyError } = require('../utils/schemaAvailability');
 
@@ -161,6 +162,7 @@ const crearDisciplina = async (req, res) => {
             return res.status(400).json({ success: false, message: errorEscenarios });
         }
         await conn.commit();
+        publicarCambioDisciplina();
         res.status(201).json({ success: true, message: 'Disciplina creada', id_disciplina: r.insertId });
     } catch (error) {
         await conn?.rollback();
@@ -220,6 +222,7 @@ const actualizarDisciplina = async (req, res) => {
             return res.status(400).json({ success: false, message: errorEscenarios });
         }
         await conn.commit();
+        publicarCambioDisciplina();
         res.json({ success: true, message: 'Disciplina actualizada' });
     } catch (error) {
         await conn?.rollback();
@@ -241,6 +244,7 @@ const reactivarDisciplina = async (req, res) => {
         if (!resultado.affectedRows) {
             return res.status(404).json({ success: false, message: 'Disciplina no encontrada' });
         }
+        publicarCambioDisciplina();
         res.json({ success: true, message: 'Disciplina reactivada. Revisa sus cronogramas antes de volver a programarla.' });
     } catch (error) {
         if (responderEsquemaNoDisponible(res, error, 'El módulo de disciplinas aún no está habilitado.')) return;
@@ -262,6 +266,7 @@ const darDeBajaDisciplina = async (req, res) => {
         }
         await conn.query('UPDATE cronograma SET activo = FALSE WHERE id_disciplina = ?', [id]);
         await conn.commit();
+        publicarCambioDisciplina();
         res.json({ success: true, message: 'Disciplina dada de baja' });
     } catch (error) {
         await conn.rollback();
