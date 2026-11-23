@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent } from 'react'
 
-const INTERVALO_MS = 30_000
+const INTERVALO_MS = 4_000
 
 export default function useActualizarLista(actualizar) {
   const consultar = useEffectEvent(actualizar)

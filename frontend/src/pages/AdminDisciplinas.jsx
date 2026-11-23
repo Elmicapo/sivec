@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { actualizarDisciplina, listarDisciplinasAdministracion, crearDisciplina, darDeBaja, reactivarDisciplina } from '../services/disciplinasService';
 import { getEscenarios } from '../services/veeduriaService';
+import useActualizarLista from '../hooks/useActualizarLista';
 
 const FORM_INICIAL = { nombre: '', categoria: 'DEPORTIVA', poblacion_objetivo: '', cupo_maximo: '', ids_escenarios: [] };
 
@@ -15,18 +16,30 @@ export default function AdminDisciplinas() {
     const [mensaje, setMensaje] = useState(null);
     const [errorLista, setErrorLista] = useState('');
 
-    const cargar = async () => {
-        setCargando(true);
-        setErrorLista('');
+    const consulta = useRef(0);
+
+    const cargar = async (silenciosa = false) => {
+        const turno = ++consulta.current;
+        if (!silenciosa) {
+            setCargando(true);
+            setErrorLista('');
+        }
         try {
             const { data } = await listarDisciplinasAdministracion();
+            if (turno !== consulta.current) return;
             setDisciplinas(data.data);
+            setErrorLista('');
         } catch (error) {
+            if (silenciosa || turno !== consulta.current) return;
             setErrorLista(error.response?.data?.message || 'No se pudieron cargar las disciplinas.');
         } finally {
-            setCargando(false);
+            if (!silenciosa && turno === consulta.current) setCargando(false);
         }
     };
+
+    useActualizarLista(() => {
+        if (!ocupado && !cargando) return cargar(true);
+    });
 
     useEffect(() => {
         let activo = true;
@@ -95,6 +108,7 @@ export default function AdminDisciplinas() {
         try {
             const operacion = activar ? reactivarDisciplina : darDeBaja;
             const { data } = await operacion(disciplina.id_disciplina);
+            consulta.current += 1;
             setDisciplinas(actuales => actuales.map(fila =>
                 fila.id_disciplina === disciplina.id_disciplina
                     ? { ...fila, estado: activar ? 'ACTIVA' : 'INACTIVA' }
@@ -179,7 +193,7 @@ export default function AdminDisciplinas() {
                 <section aria-labelledby="lista-disciplinas" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <header className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
                         <h2 id="lista-disciplinas" className="font-semibold">Disciplinas registradas</h2>
-                        <button type="button" className="offer-button offer-button-secondary" onClick={cargar} disabled={ocupado || cargando}>Actualizar</button>
+                        <button type="button" className="offer-button offer-button-secondary" onClick={() => cargar()} disabled={ocupado || cargando}>Actualizar</button>
                     </header>
                     {errorLista && <p role="alert" className="sivec-alert sivec-alert-error m-6">{errorLista}</p>}
                     {cargando && <p role="status" className="p-6">Cargando disciplinas…</p>}
