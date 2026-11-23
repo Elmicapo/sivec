@@ -17,7 +17,16 @@ export default function AdminDisciplinas() {
     const [mensaje, setMensaje] = useState(null);
     const [errorLista, setErrorLista] = useState('');
 
+    const [cambioPendiente, setCambioPendiente] = useState(null);
+    const dialogoEstado = useRef(null);
     const consulta = useRef(0);
+
+    useEffect(() => {
+        if (!cambioPendiente) return;
+        const dialogo = dialogoEstado.current;
+        dialogo.showModal();
+        return () => dialogo.close();
+    }, [cambioPendiente]);
 
     const cargar = async (silenciosa = false) => {
         const turno = ++consulta.current;
@@ -104,10 +113,6 @@ export default function AdminDisciplinas() {
 
     const cambiarEstado = async disciplina => {
         const activar = disciplina.estado === 'INACTIVA';
-        const confirmacion = activar
-            ? `${disciplina.nombre} está dada de baja. ¿Quieres reactivarla? Sus cronogramas se gestionan por separado.`
-            : `¿Dar de baja ${disciplina.nombre} y desactivar sus cronogramas?`;
-        if (!window.confirm(confirmacion)) return;
         const mostrarEstado = estado => setDisciplinas(actuales => actuales.map(fila =>
             fila.id_disciplina === disciplina.id_disciplina ? { ...fila, estado } : fila
         ));
@@ -127,6 +132,23 @@ export default function AdminDisciplinas() {
         } finally {
             setOcupado(false);
         }
+    };
+
+    const accionesDisciplina = disciplina => (
+        <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => editar(disciplina)} disabled={ocupado} className="offer-table-action">Editar</button>
+            <button type="button" onClick={() => setCambioPendiente(disciplina)} disabled={ocupado || cargando}
+                className={disciplina.estado === 'INACTIVA' ? 'offer-table-action' : 'offer-table-action danger'}>
+                {disciplina.estado === 'INACTIVA' ? 'Reactivar' : 'Dar de baja'}
+            </button>
+        </div>
+    );
+
+    const reactivacionPendiente = cambioPendiente?.estado === 'INACTIVA';
+    const confirmarCambio = () => {
+        const disciplina = cambioPendiente;
+        setCambioPendiente(null);
+        void cambiarEstado(disciplina);
     };
 
     return (
@@ -204,37 +226,75 @@ export default function AdminDisciplinas() {
                     {errorLista && <p role="alert" className="sivec-alert sivec-alert-error m-6">{errorLista}</p>}
                     {cargando && <p role="status" className="p-6">Cargando disciplinas…</p>}
                     {disciplinas && !cargando && (disciplinas.length ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase">
-                                    <tr>{['Nombre', 'Categoría', 'Población', 'Cupos usados', 'Escenarios', 'Estado', 'Acciones'].map(titulo => (
-                                        <th scope="col" key={titulo} className="px-6 py-3">{titulo}</th>
-                                    ))}</tr>
-                                </thead>
-                                <tbody className="text-sm divide-y divide-gray-100">
-                                    {disciplinas.map(disciplina => (
-                                        <tr key={disciplina.id_disciplina}>
-                                            <td className="px-6 py-4 font-semibold">{disciplina.nombre}</td>
-                                            <td className="px-6 py-4">{disciplina.categoria === 'DEPORTIVA' ? 'Deportiva' : 'Cultural'}</td>
-                                            <td className="px-6 py-4">{disciplina.poblacion_objetivo || '—'}</td>
-                                            <td className="px-6 py-4">{disciplina.inscritos}/{disciplina.cupo_maximo}</td>
-                                            <td className="px-6 py-4">{disciplina.escenarios || '—'}</td>
-                                            <td className="px-6 py-4">{disciplina.estado === 'INACTIVA' ? 'Dada de baja' : 'Activa'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap space-x-3">
-                                                <button type="button" onClick={() => editar(disciplina)} disabled={ocupado} className="offer-table-action">Editar</button>
-                                                <button type="button" onClick={() => cambiarEstado(disciplina)} disabled={ocupado || cargando}
-                                                    className={disciplina.estado === 'INACTIVA' ? 'offer-table-action' : 'offer-table-action danger'}>
-                                                    {disciplina.estado === 'INACTIVA' ? 'Reactivar' : 'Dar de baja'}
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <>
+                            <ul className="divide-y divide-gray-100 xl:hidden">
+                                {disciplinas.map(disciplina => (
+                                    <li key={disciplina.id_disciplina} className="space-y-3 p-5">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <h3 className="font-semibold">{disciplina.nombre}</h3>
+                                            <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium">
+                                                {disciplina.estado === 'INACTIVA' ? 'Dada de baja' : 'Activa'}
+                                            </span>
+                                        </div>
+                                        <dl className="grid grid-cols-2 gap-2 text-sm">
+                                            <div><dt className="font-medium">Categoría</dt><dd>{disciplina.categoria === 'DEPORTIVA' ? 'Deportiva' : 'Cultural'}</dd></div>
+                                            <div><dt className="font-medium">Cupos usados</dt><dd>{disciplina.inscritos}/{disciplina.cupo_maximo}</dd></div>
+                                            <div><dt className="font-medium">Población</dt><dd>{disciplina.poblacion_objetivo || '—'}</dd></div>
+                                            <div><dt className="font-medium">Escenarios</dt><dd>{disciplina.escenarios || '—'}</dd></div>
+                                        </dl>
+                                        {accionesDisciplina(disciplina)}
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="hidden overflow-x-auto xl:block">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase">
+                                        <tr>{['Nombre', 'Categoría', 'Población', 'Cupos usados', 'Escenarios', 'Estado', 'Acciones'].map(titulo => (
+                                            <th scope="col" key={titulo} className="px-6 py-3">{titulo}</th>
+                                        ))}</tr>
+                                    </thead>
+                                    <tbody className="text-sm divide-y divide-gray-100">
+                                        {disciplinas.map(disciplina => (
+                                            <tr key={disciplina.id_disciplina}>
+                                                <td className="px-6 py-4 font-semibold">{disciplina.nombre}</td>
+                                                <td className="px-6 py-4">{disciplina.categoria === 'DEPORTIVA' ? 'Deportiva' : 'Cultural'}</td>
+                                                <td className="px-6 py-4">{disciplina.poblacion_objetivo || '—'}</td>
+                                                <td className="px-6 py-4">{disciplina.inscritos}/{disciplina.cupo_maximo}</td>
+                                                <td className="px-6 py-4">{disciplina.escenarios || '—'}</td>
+                                                <td className="px-6 py-4">{disciplina.estado === 'INACTIVA' ? 'Dada de baja' : 'Activa'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap space-x-3">
+                                                    {accionesDisciplina(disciplina)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
                     ) : <p className="p-6 text-gray-600">No hay disciplinas registradas.</p>)}
                 </section>
             </div>
+            {cambioPendiente && (
+                <dialog ref={dialogoEstado} aria-labelledby="titulo-cambio-disciplina" aria-describedby="aviso-cambio-disciplina"
+                    onCancel={() => setCambioPendiente(null)}
+                    className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 text-gray-900 shadow-xl backdrop:bg-black/50">
+                    <h2 id="titulo-cambio-disciplina" className="text-xl font-bold">
+                        {reactivacionPendiente ? 'Reactivar disciplina' : 'Dar de baja disciplina'}
+                    </h2>
+                    <p id="aviso-cambio-disciplina" className="mt-3">
+                        {reactivacionPendiente
+                            ? `${cambioPendiente.nombre} está dada de baja. ¿Quieres reactivarla? Sus cronogramas se gestionan por separado.`
+                            : `¿Dar de baja ${cambioPendiente.nombre} y desactivar sus cronogramas?`}
+                    </p>
+                    <div className="mt-6 flex flex-wrap justify-end gap-3">
+                        <button type="button" autoFocus className="offer-button offer-button-secondary"
+                            onClick={() => setCambioPendiente(null)}>Cancelar</button>
+                        <button type="button" className="offer-button offer-button-primary" onClick={confirmarCambio}>
+                            {reactivacionPendiente ? 'Reactivar' : 'Dar de baja'}
+                        </button>
+                    </div>
+                </dialog>
+            )}
         </main>
     );
 }
