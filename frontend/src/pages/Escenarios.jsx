@@ -23,8 +23,7 @@ const ESTADOS = [
 const FOTOS_DISCIPLINA = {
   futbol: { posicion: '0% 0%', alt: 'Entrenamiento de fútbol al aire libre' },
   danza: { posicion: '100% 0%', alt: 'Ensayo de danza folclórica' },
-  natacion: { posicion: '0% 100%', alt: 'Entrenamiento en una piscina deportiva' },
-  referencia: { posicion: '100% 100%', alt: 'Actividad física comunitaria en un parque' }
+  natacion: { posicion: '0% 100%', alt: 'Entrenamiento en una piscina deportiva' }
 }
 
 function FotoIlustrativa({ foto, className = '' }) {
@@ -156,18 +155,18 @@ function TarjetaEscenario({ escenario }) {
 
 function TarjetaDisciplina({ disciplina }) {
   const disponibles = Number(disciplina.cupo_maximo) - Number(disciplina.inscritos)
-  const nombre = disciplina.nombre.toLowerCase()
-  const foto = nombre.includes('fútbol') || nombre.includes('futbol')
+  const nombre = disciplina.nombre.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
+  const foto = /^(futbol|futbol de campo)$/.test(nombre)
     ? FOTOS_DISCIPLINA.futbol
-    : nombre.includes('natación') || nombre.includes('natacion')
+    : nombre === 'natacion'
       ? FOTOS_DISCIPLINA.natacion
-      : nombre.includes('danza')
+      : /^danza(s)? (folcloricas?|folkloricas?)$/.test(nombre)
         ? FOTOS_DISCIPLINA.danza
-        : FOTOS_DISCIPLINA.referencia
+        : null
 
   return (
-    <article className="home-discipline-card">
-      <FotoIlustrativa foto={foto} className="home-discipline-photo" />
+    <article className={`home-discipline-card${foto ? ' home-discipline-card-with-photo' : ''}`}>
+      {foto && <FotoIlustrativa foto={foto} className="home-discipline-photo" />}
       <span className={`home-discipline-icon ${disciplina.categoria === 'CULTURAL' ? 'home-discipline-icon-culture' : ''}`}>
         <Icono nombre="comunidad" />
       </span>
@@ -175,7 +174,7 @@ function TarjetaDisciplina({ disciplina }) {
         <span className={`home-discipline-category ${disciplina.categoria === 'CULTURAL' ? 'home-discipline-category-culture' : ''}`}>
           {disciplina.categoria}
         </span>
-        <span className="home-discipline-photo-label">Imagen ilustrativa · no representa un escenario</span>
+        {foto && <span className="home-discipline-photo-label">Imagen ilustrativa</span>}
         <h3>{disciplina.nombre}</h3>
         <p>{disciplina.poblacion_objetivo || 'Población objetivo no especificada'}</p>
         {disciplina.entrenador && (

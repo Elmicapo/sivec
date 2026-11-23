@@ -3326,7 +3326,7 @@ body.auth-modal-open {
   z-index: 1;
 }
 
-.home-offer-section .home-discipline-content {
+.home-offer-section .home-discipline-card-with-photo .home-discipline-content {
   padding-right: 105px;
 }
 
@@ -4807,7 +4807,7 @@ body.auth-modal-open {
     padding: 18px;
   }
 
-  .home-offer-section .home-discipline-content {
+  .home-offer-section .home-discipline-card-with-photo .home-discipline-content {
     padding-right: 94px;
   }
 
