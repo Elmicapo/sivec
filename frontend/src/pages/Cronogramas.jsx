@@ -36,6 +36,8 @@ export default function Cronogramas() {
   const [disciplinas, setDisciplinas] = useState([])
   const [escenarios, setEscenarios] = useState([])
   const [entrenadores, setEntrenadores] = useState([])
+  const [mostrarSolicitud, setMostrarSolicitud] = useState(false)
+  const [estadoCatalogo, setEstadoCatalogo] = useState({ cargando: true })
   const [disciplinaSolicitada, setDisciplinaSolicitada] = useState('')
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
   const [mensajeSolicitud, setMensajeSolicitud] = useState(null)
@@ -66,19 +68,24 @@ export default function Cronogramas() {
   useEffect(() => {
     let activo = true
     const cargarListas = async () => {
-      try {
-        const [d, e] = await Promise.all([consultarDisciplinas(), getEscenarios()])
-        if (activo) {
-          setDisciplinas(d.data.data)
-          setEscenarios(e.data.data)
-        }
-        if (esAdmin) {
-          const t = await buscarEntrenadores({})
-          if (activo) setEntrenadores(t.data.data)
-        }
-      } catch {
-        if (activo) setMensaje({ tipo: 'error', texto: 'No se pudieron cargar las listas del formulario' })
-      }
+      const turno = ++consultaDisciplinas.current
+      const cargarDisciplinas = consultarDisciplinas()
+        .then(({ data }) => {
+          if (!activo || turno !== consultaDisciplinas.current) return
+          setDisciplinas(data.data)
+          setEstadoCatalogo({ cargando: false })
+        })
+        .catch(error => {
+          if (!activo || turno !== consultaDisciplinas.current) return
+          setEstadoCatalogo({ error: error.response?.data?.message || 'No se pudo cargar el catálogo de disciplinas.' })
+        })
+      const cargarEscenarios = getEscenarios()
+        .then(({ data }) => { if (activo) setEscenarios(data.data) })
+        .catch(() => { if (activo) setMensaje({ tipo: 'error', texto: 'No se pudo cargar la lista de escenarios.' }) })
+      const cargarEntrenadores = esAdmin && buscarEntrenadores({})
+        .then(({ data }) => { if (activo) setEntrenadores(data.data) })
+        .catch(() => { if (activo) setMensaje({ tipo: 'error', texto: 'No se pudo cargar la lista de entrenadores.' }) })
+      await Promise.all([cargarDisciplinas, cargarEscenarios, cargarEntrenadores])
     }
 
     listarCronogramas({})
@@ -101,11 +108,14 @@ export default function Cronogramas() {
   }, [esAdmin, consultarDisciplinas])
 
   useActualizarLista(async () => {
-    if (esAdmin || enviandoSolicitud) return
+    if (esAdmin || enviandoSolicitud || estadoCatalogo.cargando) return
     const turno = ++consultaDisciplinas.current
     try {
       const { data } = await listarDisciplinasParaAgenda()
-      if (turno === consultaDisciplinas.current) setDisciplinas(data.data)
+      if (turno === consultaDisciplinas.current) {
+        setDisciplinas(data.data)
+        setEstadoCatalogo({ cargando: false })
+      }
     } catch {
       // Se conserva el último catálogo disponible.
     }
@@ -202,6 +212,45 @@ export default function Cronogramas() {
           <p>Consulta y organiza los horarios publicados para disciplinas y escenarios.</p>
         </header>
 
+        {!esAdmin && (
+          <button type="button" className="offer-button offer-button-secondary mb-4"
+            aria-expanded={mostrarSolicitud} aria-controls="solicitar-disciplina"
+            onClick={() => setMostrarSolicitud(actual => !actual)}>
+            {mostrarSolicitud ? 'Cerrar solicitud' : 'Solicitar otra disciplina'}
+          </button>
+        )}
+        {!esAdmin && mostrarSolicitud && (
+          <section id="solicitar-disciplina" className="offer-filter-panel mb-4">
+            <div className="offer-filter-heading">
+              <div>
+                <h2>Solicitar otra disciplina</h2>
+                <p>Cuando el administrador apruebe la vinculación, podrás programar horarios para esa disciplina.</p>
+              </div>
+              <Link to="/entrenador/solicitudes" className="offer-text-link">Mis solicitudes</Link>
+            </div>
+            {estadoCatalogo.cargando && <p role="status">Cargando disciplinas…</p>}
+            {estadoCatalogo.error && <p role="alert" className="offer-notice error">{estadoCatalogo.error}</p>}
+            {opcionesSolicitud.length > 0 && (
+              <form onSubmit={enviarSolicitud} className="space-y-3">
+                <label className="offer-field">
+                  Disciplina para solicitar
+                  <select value={disciplinaSolicitada} disabled={enviandoSolicitud} required
+                    onChange={event => setDisciplinaSolicitada(event.target.value)}>
+                    <option value="">Selecciona una disciplina</option>
+                    {opcionesSolicitud.map(d => <option key={d.id_disciplina} value={d.id_disciplina}>{d.nombre}</option>)}
+                  </select>
+                </label>
+                <button className="offer-button offer-button-primary" disabled={!disciplinaSolicitada || enviandoSolicitud}>
+                  {enviandoSolicitud ? 'Enviando…' : 'Enviar solicitud al administrador'}
+                </button>
+              </form>
+            )}
+            {pendientes.length > 0 && <p className="mt-3">Pendientes de aprobación: {pendientes.map(d => d.nombre).join(', ')}.</p>}
+            {mensajeSolicitud && <p className={`offer-notice ${mensajeSolicitud.tipo}`} role={mensajeSolicitud.tipo === 'error' ? 'alert' : 'status'}>{mensajeSolicitud.texto}</p>}
+            {!estadoCatalogo.cargando && !estadoCatalogo.error && !opcionesSolicitud.length && !pendientes.length && <p>No hay disciplinas disponibles para solicitar.</p>}
+          </section>
+        )}
+
         <form onSubmit={guardar} className="offer-filter-panel offer-schedule-form">
           <div className="offer-filter-heading">
             <div>
@@ -209,7 +258,6 @@ export default function Cronogramas() {
               <p>Completa los datos del cronograma según la oferta registrada.</p>
             </div>
           </div>
-          {!esAdmin && <a href="#solicitar-disciplina" className="offer-text-link inline-block mb-4">Solicitar otra disciplina</a>}
 
           <div className="offer-filter-grid offer-filter-grid-three">
             <label className="offer-field">
@@ -218,6 +266,7 @@ export default function Cronogramas() {
                 <option value="">Selecciona una disciplina</option>
                 {disciplinasParaProgramar.map((d) => <option key={d.id_disciplina} value={d.id_disciplina}>{d.nombre}</option>)}
               </select>
+              {estadoCatalogo.error && <span role="alert">{estadoCatalogo.error}</span>}
             </label>
 
             <label className="offer-field">
@@ -282,35 +331,7 @@ export default function Cronogramas() {
           </div>
         </form>
 
-        {!esAdmin && (
-          <section id="solicitar-disciplina" className="offer-filter-panel mt-6 scroll-mt-24">
-            <div className="offer-filter-heading">
-              <div>
-                <h2>Solicitar otra disciplina</h2>
-                <p>Cuando el administrador apruebe la vinculación, podrás programar horarios para esa disciplina.</p>
-              </div>
-              <Link to="/entrenador/solicitudes" className="offer-text-link">Mis solicitudes</Link>
-            </div>
-            {opcionesSolicitud.length > 0 && (
-              <form onSubmit={enviarSolicitud} className="space-y-3">
-                <label className="offer-field">
-                  Disciplina para solicitar
-                  <select value={disciplinaSolicitada} disabled={enviandoSolicitud} required
-                    onChange={event => setDisciplinaSolicitada(event.target.value)}>
-                    <option value="">Selecciona una disciplina</option>
-                    {opcionesSolicitud.map(d => <option key={d.id_disciplina} value={d.id_disciplina}>{d.nombre}</option>)}
-                  </select>
-                </label>
-                <button className="offer-button offer-button-primary" disabled={!disciplinaSolicitada || enviandoSolicitud}>
-                  {enviandoSolicitud ? 'Enviando…' : 'Enviar solicitud al administrador'}
-                </button>
-              </form>
-            )}
-            {pendientes.length > 0 && <p className="mt-3">Pendientes de aprobación: {pendientes.map(d => d.nombre).join(', ')}.</p>}
-            {mensajeSolicitud && <p className={`offer-notice ${mensajeSolicitud.tipo}`} role={mensajeSolicitud.tipo === 'error' ? 'alert' : 'status'}>{mensajeSolicitud.texto}</p>}
-            {!opcionesSolicitud.length && !pendientes.length && <p>No hay disciplinas disponibles para solicitar.</p>}
-          </section>
-        )}
+
 
 
         <div className="offer-results-heading">
