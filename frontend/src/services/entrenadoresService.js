@@ -15,3 +15,4 @@ export const listarCronogramas = (filtros) => api.get('/cronogramas', { params: 
 export const crearCronograma = (datos) => api.post('/cronogramas', datos)
 export const actualizarCronograma = (id, datos) => api.put(`/cronogramas/${id}`, datos)
 export const bajaCronograma = (id) => api.delete(`/cronogramas/${id}`)
+export const listarDisciplinasParaAgenda = () => api.get('/entrenadores/disciplinas-agenda')

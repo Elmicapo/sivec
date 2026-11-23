@@ -341,10 +341,38 @@ const misDeportistas = async (req, res) => {
     }
 };
 
+const listarDisciplinasParaAgenda = async (req, res) => {
+    try {
+        await assertSchemaObjectsAvailable(db, ['disciplina', 'disciplina_entrenador', 'solicitud_vinculacion_entrenador']);
+        const idEntrenador = req.usuario.id_persona;
+        const [data] = await db.query(
+            `SELECT d.id_disciplina, d.nombre,
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM disciplina_entrenador de
+                         WHERE de.id_disciplina = d.id_disciplina AND de.id_entrenador = ?
+                    ) THEN 'VINCULADA'
+                    WHEN EXISTS (
+                        SELECT 1 FROM solicitud_vinculacion_entrenador s
+                         WHERE s.id_disciplina = d.id_disciplina AND s.id_entrenador = ? AND s.estado = 'PENDIENTE'
+                    ) THEN 'PENDIENTE'
+                    ELSE 'DISPONIBLE' END AS vinculacion
+               FROM disciplina d
+              WHERE d.estado = 'ACTIVA'
+              ORDER BY d.nombre`,
+            [idEntrenador, idEntrenador]
+        );
+        res.json({ success: true, data });
+    } catch (error) {
+        if (responderEsquemaNoDisponible(res, error, 'El catálogo de vinculación aún no está habilitado.')) return;
+        return responderErrorInterno(res, 'entrenadores.disciplinas_agenda', 'No se pudieron consultar las disciplinas de tu agenda.')(error);
+    }
+};
+
 module.exports = {
     buscarEntrenadores,
     buscarDeportistas,
     createVinculacionHandlers,
+    listarDisciplinasParaAgenda,
     listarMisSolicitudesVinculacion,
     listarSolicitudesVinculacion,
     misDeportistas,

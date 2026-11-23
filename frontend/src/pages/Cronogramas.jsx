@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import useActualizarLista from '../hooks/useActualizarLista'
 import { useAuth } from '../context/AuthContext'
 import TablaAgenda from '../components/TablaAgenda'
 import { buscarDisciplinas } from '../services/disciplinasService'
@@ -8,7 +10,9 @@ import {
   listarCronogramas,
   crearCronograma,
   actualizarCronograma,
-  bajaCronograma
+  bajaCronograma,
+  listarDisciplinasParaAgenda,
+  solicitarVinculacion
 } from '../services/entrenadoresService'
 
 const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
@@ -32,6 +36,14 @@ export default function Cronogramas() {
   const [disciplinas, setDisciplinas] = useState([])
   const [escenarios, setEscenarios] = useState([])
   const [entrenadores, setEntrenadores] = useState([])
+  const [disciplinaSolicitada, setDisciplinaSolicitada] = useState('')
+  const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
+  const [mensajeSolicitud, setMensajeSolicitud] = useState(null)
+  const consultaDisciplinas = useRef(0)
+  const consultarDisciplinas = esAdmin ? buscarDisciplinas : listarDisciplinasParaAgenda
+  const disciplinasParaProgramar = esAdmin ? disciplinas : disciplinas.filter(d => d.vinculacion === 'VINCULADA')
+  const opcionesSolicitud = disciplinas.filter(d => d.vinculacion === 'DISPONIBLE')
+  const pendientes = disciplinas.filter(d => d.vinculacion === 'PENDIENTE')
   const [form, setForm] = useState(VACIO)
   const [editandoId, setEditandoId] = useState(null)
   const [mensaje, setMensaje] = useState(null)
@@ -55,7 +67,7 @@ export default function Cronogramas() {
     let activo = true
     const cargarListas = async () => {
       try {
-        const [d, e] = await Promise.all([buscarDisciplinas({}), getEscenarios()])
+        const [d, e] = await Promise.all([consultarDisciplinas(), getEscenarios()])
         if (activo) {
           setDisciplinas(d.data.data)
           setEscenarios(e.data.data)
@@ -86,7 +98,38 @@ export default function Cronogramas() {
     return () => {
       activo = false
     }
-  }, [esAdmin])
+  }, [esAdmin, consultarDisciplinas])
+
+  useActualizarLista(async () => {
+    if (esAdmin || enviandoSolicitud) return
+    const turno = ++consultaDisciplinas.current
+    try {
+      const { data } = await listarDisciplinasParaAgenda()
+      if (turno === consultaDisciplinas.current) setDisciplinas(data.data)
+    } catch {
+      // Se conserva el último catálogo disponible.
+    }
+  })
+
+  const enviarSolicitud = async event => {
+    event.preventDefault()
+    if (enviandoSolicitud || !opcionesSolicitud.some(d => String(d.id_disciplina) === disciplinaSolicitada)) return
+    setEnviandoSolicitud(true)
+    setMensajeSolicitud(null)
+    try {
+      await solicitarVinculacion(Number(disciplinaSolicitada))
+      consultaDisciplinas.current += 1
+      setDisciplinas(actuales => actuales.map(d =>
+        String(d.id_disciplina) === disciplinaSolicitada ? { ...d, vinculacion: 'PENDIENTE' } : d
+      ))
+      setDisciplinaSolicitada('')
+      setMensajeSolicitud({ tipo: 'ok', texto: 'Solicitud enviada al administrador. Queda pendiente de aprobación.' })
+    } catch (error) {
+      setMensajeSolicitud({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo enviar la solicitud.' })
+    } finally {
+      setEnviandoSolicitud(false)
+    }
+  }
 
   const cambiar = (campo) => (e) => setForm({ ...form, [campo]: e.target.value })
 
@@ -166,13 +209,14 @@ export default function Cronogramas() {
               <p>Completa los datos del cronograma según la oferta registrada.</p>
             </div>
           </div>
+          {!esAdmin && <a href="#solicitar-disciplina" className="offer-text-link inline-block mb-4">Solicitar otra disciplina</a>}
 
           <div className="offer-filter-grid offer-filter-grid-three">
             <label className="offer-field">
               <span>Disciplina</span>
               <select value={form.id_disciplina} onChange={cambiar('id_disciplina')} required>
                 <option value="">Selecciona una disciplina</option>
-                {disciplinas.map((d) => <option key={d.id_disciplina} value={d.id_disciplina}>{d.nombre}</option>)}
+                {disciplinasParaProgramar.map((d) => <option key={d.id_disciplina} value={d.id_disciplina}>{d.nombre}</option>)}
               </select>
             </label>
 
@@ -237,6 +281,37 @@ export default function Cronogramas() {
             )}
           </div>
         </form>
+
+        {!esAdmin && (
+          <section id="solicitar-disciplina" className="offer-filter-panel mt-6 scroll-mt-24">
+            <div className="offer-filter-heading">
+              <div>
+                <h2>Solicitar otra disciplina</h2>
+                <p>Cuando el administrador apruebe la vinculación, podrás programar horarios para esa disciplina.</p>
+              </div>
+              <Link to="/entrenador/solicitudes" className="offer-text-link">Mis solicitudes</Link>
+            </div>
+            {opcionesSolicitud.length > 0 && (
+              <form onSubmit={enviarSolicitud} className="space-y-3">
+                <label className="offer-field">
+                  Disciplina para solicitar
+                  <select value={disciplinaSolicitada} disabled={enviandoSolicitud} required
+                    onChange={event => setDisciplinaSolicitada(event.target.value)}>
+                    <option value="">Selecciona una disciplina</option>
+                    {opcionesSolicitud.map(d => <option key={d.id_disciplina} value={d.id_disciplina}>{d.nombre}</option>)}
+                  </select>
+                </label>
+                <button className="offer-button offer-button-primary" disabled={!disciplinaSolicitada || enviandoSolicitud}>
+                  {enviandoSolicitud ? 'Enviando…' : 'Enviar solicitud al administrador'}
+                </button>
+              </form>
+            )}
+            {pendientes.length > 0 && <p className="mt-3">Pendientes de aprobación: {pendientes.map(d => d.nombre).join(', ')}.</p>}
+            {mensajeSolicitud && <p className={`offer-notice ${mensajeSolicitud.tipo}`} role={mensajeSolicitud.tipo === 'error' ? 'alert' : 'status'}>{mensajeSolicitud.texto}</p>}
+            {!opcionesSolicitud.length && !pendientes.length && <p>No hay disciplinas disponibles para solicitar.</p>}
+          </section>
+        )}
+
 
         <div className="offer-results-heading">
           <div>

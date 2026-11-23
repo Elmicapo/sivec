@@ -4,6 +4,7 @@ const {
     buscarEntrenadores,
     buscarDeportistas,
     listarMisSolicitudesVinculacion,
+    listarDisciplinasParaAgenda,
     listarSolicitudesVinculacion,
     misDeportistas,
     resolverSolicitudVinculacion,
@@ -14,6 +15,7 @@ const { verificarToken, permitirRoles } = require('../middlewares/authMiddleware
 router.get('/', verificarToken, permitirRoles('ADMINISTRATIVO', 'DEPORTISTA'), buscarEntrenadores);
 router.get('/deportistas', verificarToken, permitirRoles('ENTRENADOR', 'ADMINISTRATIVO'), buscarDeportistas);
 router.get('/mis-deportistas', verificarToken, permitirRoles('ENTRENADOR'), misDeportistas);
+router.get('/disciplinas-agenda', verificarToken, permitirRoles('ENTRENADOR'), listarDisciplinasParaAgenda);
 router.get('/mis-solicitudes', verificarToken, permitirRoles('ENTRENADOR'), listarMisSolicitudesVinculacion);
 router.post('/solicitudes-vinculacion', verificarToken, permitirRoles('ENTRENADOR'), solicitarVinculacion);
 router.get('/solicitudes-vinculacion', verificarToken, permitirRoles('ADMINISTRATIVO'), listarSolicitudesVinculacion);
