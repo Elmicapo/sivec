@@ -259,7 +259,7 @@ export default function Escenarios() {
 
   useActualizarLista(async () => {
     aplicarResultados(await solicitarDatosPortada())
-  })
+  }, true)
 
   const reintentar = () => {
     setEstadoEscenarios('loading')

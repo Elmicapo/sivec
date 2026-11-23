@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { actualizarDisciplina, listarDisciplinasAdministracion, crearDisciplina, darDeBaja, reactivarDisciplina } from '../services/disciplinasService';
 import { getEscenarios } from '../services/veeduriaService';
 import useActualizarLista from '../hooks/useActualizarLista';
+import { avisarCambioDisciplinas } from '../services/actualizacionDisciplinas';
 
 const FORM_INICIAL = { nombre: '', categoria: 'DEPORTIVA', poblacion_objetivo: '', cupo_maximo: '', ids_escenarios: [] };
 
@@ -39,7 +40,7 @@ export default function AdminDisciplinas() {
 
     useActualizarLista(() => {
         if (!ocupado && !cargando) return cargar(true);
-    });
+    }, true);
 
     useEffect(() => {
         let activo = true;
@@ -92,6 +93,7 @@ export default function AdminDisciplinas() {
             const { data } = editando ? await actualizarDisciplina(editando, datos) : await crearDisciplina(datos);
             cancelar();
             setMensaje({ tipo: 'success', texto: data.message });
+            avisarCambioDisciplinas();
             await cargar();
         } catch (error) {
             setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo guardar la disciplina.' });
@@ -103,20 +105,21 @@ export default function AdminDisciplinas() {
     const cambiarEstado = async disciplina => {
         const activar = disciplina.estado === 'INACTIVA';
         if (!activar && !window.confirm(`¿Dar de baja ${disciplina.nombre} y desactivar sus cronogramas?`)) return;
+        const mostrarEstado = estado => setDisciplinas(actuales => actuales.map(fila =>
+            fila.id_disciplina === disciplina.id_disciplina ? { ...fila, estado } : fila
+        ));
+        consulta.current += 1;
         setOcupado(true);
         setMensaje(null);
+        mostrarEstado(activar ? 'ACTIVA' : 'INACTIVA');
         try {
             const operacion = activar ? reactivarDisciplina : darDeBaja;
             const { data } = await operacion(disciplina.id_disciplina);
-            consulta.current += 1;
-            setDisciplinas(actuales => actuales.map(fila =>
-                fila.id_disciplina === disciplina.id_disciplina
-                    ? { ...fila, estado: activar ? 'ACTIVA' : 'INACTIVA' }
-                    : fila
-            ));
+            avisarCambioDisciplinas();
             if (editando === disciplina.id_disciplina) cancelar();
             setMensaje({ tipo: 'success', texto: data.message });
         } catch (error) {
+            mostrarEstado(disciplina.estado);
             setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'No se pudo cambiar el estado de la disciplina.' });
         } finally {
             setOcupado(false);

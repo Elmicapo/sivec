@@ -62,7 +62,7 @@ export default function Disciplinas() {
 
   useActualizarLista(() => {
     if (!cargando) return cargar(filtrosAplicados.current, true)
-  })
+  }, true)
 
   const buscar = (e) => {
     e.preventDefault()
