@@ -20,10 +20,10 @@ const ESTADOS = [
   { codigo: 'ROJO', nombre: 'Deteriorado' }
 ]
 
-const FOTOS_DISCIPLINA = {
+const FOTOS_ACTIVIDADES = {
   futbol: { posicion: '0% 0%', alt: 'Entrenamiento de fútbol al aire libre' },
   danza: { posicion: '100% 0%', alt: 'Ensayo de danza folclórica' },
-  natacion: { posicion: '0% 100%', alt: 'Entrenamiento en una piscina deportiva' }
+  deportiva: { posicion: '100% 100%', alt: 'Actividad física comunitaria' }
 }
 
 function FotoIlustrativa({ foto, className = '' }) {
@@ -155,18 +155,13 @@ function TarjetaEscenario({ escenario }) {
 
 function TarjetaDisciplina({ disciplina }) {
   const disponibles = Number(disciplina.cupo_maximo) - Number(disciplina.inscritos)
-  const nombre = disciplina.nombre.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
-  const foto = /^(futbol|futbol de campo)$/.test(nombre)
-    ? FOTOS_DISCIPLINA.futbol
-    : nombre === 'natacion'
-      ? FOTOS_DISCIPLINA.natacion
-      : /^danza(s)? (folcloricas?|folkloricas?)$/.test(nombre)
-        ? FOTOS_DISCIPLINA.danza
-        : null
+  const foto = disciplina.categoria === 'CULTURAL'
+    ? FOTOS_ACTIVIDADES.danza
+    : FOTOS_ACTIVIDADES.deportiva
 
   return (
-    <article className={`home-discipline-card${foto ? ' home-discipline-card-with-photo' : ''}`}>
-      {foto && <FotoIlustrativa foto={foto} className="home-discipline-photo" />}
+    <article className="home-discipline-card">
+      <FotoIlustrativa foto={foto} className="home-discipline-photo" />
       <span className={`home-discipline-icon ${disciplina.categoria === 'CULTURAL' ? 'home-discipline-icon-culture' : ''}`}>
         <Icono nombre="comunidad" />
       </span>
@@ -174,7 +169,7 @@ function TarjetaDisciplina({ disciplina }) {
         <span className={`home-discipline-category ${disciplina.categoria === 'CULTURAL' ? 'home-discipline-category-culture' : ''}`}>
           {disciplina.categoria}
         </span>
-        {foto && <span className="home-discipline-photo-label">Imagen ilustrativa</span>}
+        <span className="home-discipline-photo-label">Imagen ilustrativa de la categoría</span>
         <h3>{disciplina.nombre}</h3>
         <p>{disciplina.poblacion_objetivo || 'Población objetivo no especificada'}</p>
         {disciplina.entrenador && (
@@ -307,14 +302,14 @@ export default function Escenarios() {
 
           <div className="home-hero-art">
             <figure className="home-hero-photo">
-              <FotoIlustrativa foto={FOTOS_DISCIPLINA.futbol} />
+              <FotoIlustrativa foto={FOTOS_ACTIVIDADES.futbol} />
               <figcaption>
                 <span>Espacios para encontrarnos</span>
                 <strong>Una comunidad en movimiento</strong>
               </figcaption>
             </figure>
             <figure className="home-culture-photo">
-              <FotoIlustrativa foto={FOTOS_DISCIPLINA.danza} />
+              <FotoIlustrativa foto={FOTOS_ACTIVIDADES.danza} />
               <figcaption>La cultura también nos une</figcaption>
             </figure>
           </div>
