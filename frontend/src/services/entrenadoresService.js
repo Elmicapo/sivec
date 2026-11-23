@@ -16,3 +16,5 @@ export const crearCronograma = (datos) => api.post('/cronogramas', datos)
 export const actualizarCronograma = (id, datos) => api.put(`/cronogramas/${id}`, datos)
 export const bajaCronograma = (id) => api.delete(`/cronogramas/${id}`)
 export const listarDisciplinasParaAgenda = () => api.get('/entrenadores/disciplinas-agenda')
+
+export const sugerirEscenariosAgenda = (params, signal) => api.get('/cronogramas/escenarios-disponibles', { params, signal })

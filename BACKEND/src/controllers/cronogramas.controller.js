@@ -76,22 +76,82 @@ const validarReferencias = async (conn, c, usuario) => {
 };
 
 // Un entrenador no puede estar en dos clases a la vez y un escenario no puede tener dos a la vez
-const hayConflicto = async (conn, c, idExcluir) => {
+const consultarCruces = async (conn, c, escenarios, idExcluir) => {
     const [filas] = await conn.query(
         `SELECT id_entrenador, id_escenario FROM cronograma
          WHERE activo AND dia_semana = ?
            AND hora_inicio < ? AND ? < hora_fin
            AND vigencia_desde <= COALESCE(?, '9999-12-31')
            AND ? <= COALESCE(vigencia_hasta, '9999-12-31')
-           AND (id_entrenador = ? OR id_escenario = ?)
+           AND (id_entrenador = ? OR id_escenario IN (?))
            AND id_cronograma <> ?`,
         [c.dia_semana, c.hora_fin, c.hora_inicio, c.vigencia_hasta, c.vigencia_desde,
-         c.id_entrenador, c.id_escenario, idExcluir]
+         c.id_entrenador, escenarios, idExcluir]
     );
+    return filas;
+};
+
+const hayConflicto = async (conn, c, idExcluir) => {
+    const filas = await consultarCruces(conn, c, [c.id_escenario], idExcluir);
     if (filas.length === 0) return null;
     return filas.some((f) => f.id_entrenador === c.id_entrenador)
         ? 'El entrenador ya tiene una clase en ese horario'
         : 'El escenario ya está ocupado en ese horario';
+};
+
+const sugerirEscenarios = async (req, res) => {
+    const c = normalizar({ usuario: req.usuario, body: req.query });
+    const idExcluir = Number(req.query.id_cronograma || 0);
+    if (!Number.isSafeInteger(c.id_disciplina) || c.id_disciplina < 1
+        || !Number.isSafeInteger(idExcluir) || idExcluir < 0) {
+        return res.status(400).json({ success: false, message: 'Disciplina u horario inválido.' });
+    }
+
+    const revisarHorario = req.query.hora_inicio !== undefined;
+    if (revisarHorario) {
+        const error = validar({ ...c, id_escenario: 1 });
+        if (error) return res.status(400).json({ success: false, message: error });
+    }
+
+    try {
+        await assertCronogramaTables(db);
+        const [escenarios] = await db.query(
+            `SELECT e.id_escenario, e.nombre
+               FROM disciplina_escenario de
+               JOIN disciplina d ON d.id_disciplina = de.id_disciplina AND d.estado = 'ACTIVA'
+               JOIN escenario e ON e.id_escenario = de.id_escenario AND e.activo
+               JOIN disciplina_entrenador dt ON dt.id_disciplina = de.id_disciplina AND dt.id_entrenador = ?
+              WHERE de.id_disciplina = ?
+              ORDER BY e.nombre, e.id_escenario`,
+            [c.id_entrenador, c.id_disciplina]
+        );
+        if (!revisarHorario || !escenarios.length) {
+            return res.json({ success: true, data: escenarios, horario_verificado: false });
+        }
+
+        if (idExcluir) {
+            const [[propio]] = await db.query(
+                'SELECT 1 FROM cronograma WHERE id_cronograma = ? AND id_entrenador = ? AND activo',
+                [idExcluir, c.id_entrenador]);
+            if (!propio) return res.status(404).json({ success: false, message: 'Horario no encontrado en tu agenda.' });
+        }
+
+        const cruces = await consultarCruces(db, c, escenarios.map(e => e.id_escenario), idExcluir);
+        const entrenadorOcupado = cruces.some(fila => Number(fila.id_entrenador) === Number(c.id_entrenador));
+        const ocupados = new Set(cruces.map(fila => fila.id_escenario));
+
+        return res.json({
+            success: true,
+            data: escenarios.map(e => ({ ...e, disponible: !entrenadorOcupado && !ocupados.has(e.id_escenario) })),
+            horario_verificado: true,
+            entrenador_ocupado: entrenadorOcupado
+        });
+    } catch (error) {
+        if (error.code === SCHEMA_ERROR.code && error.statusCode === 503) {
+            return res.status(503).json({ success: false, code: error.code, message: error.message });
+        }
+        return responderErrorInterno(res, 'cronogramas.escenarios', 'No se pudo consultar la disponibilidad de escenarios.')(error);
+    }
 };
 
 // Listar (ADMINISTRATIVO ve todos; ENTRENADOR solo los suyos)
@@ -220,4 +280,4 @@ const darDeBajaCronograma = async (req, res) => {
     }
 };
 
-module.exports = { listarCronogramas, crearCronograma, actualizarCronograma, darDeBajaCronograma };
+module.exports = { sugerirEscenarios, listarCronogramas, crearCronograma, actualizarCronograma, darDeBajaCronograma };

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import useActualizarLista from '../hooks/useActualizarLista'
 import { useAuth } from '../context/AuthContext'
@@ -12,7 +12,8 @@ import {
   actualizarCronograma,
   bajaCronograma,
   listarDisciplinasParaAgenda,
-  solicitarVinculacion
+  solicitarVinculacion,
+  sugerirEscenariosAgenda
 } from '../services/entrenadoresService'
 
 const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
@@ -53,6 +54,45 @@ export default function Cronogramas() {
   const [guardando, setGuardando] = useState(false)
   const [bajandoId, setBajandoId] = useState(null)
 
+  const [sugerencia, setSugerencia] = useState(null)
+  const { id_disciplina, dia_semana, hora_inicio, hora_fin, vigencia_desde, vigencia_hasta } = form
+  const consultaEscenarios = useMemo(() => {
+    if (esAdmin || !id_disciplina) return null
+    const horarioCompleto = hora_inicio && hora_fin > hora_inicio && vigencia_desde
+      && (!vigencia_hasta || vigencia_hasta >= vigencia_desde)
+    return horarioCompleto
+      ? { id_disciplina, dia_semana, hora_inicio, hora_fin, vigencia_desde, vigencia_hasta, id_cronograma: editandoId }
+      : { id_disciplina }
+  }, [esAdmin, id_disciplina, dia_semana, hora_inicio, hora_fin, vigencia_desde, vigencia_hasta, editandoId])
+
+  const sugerenciaActual = sugerencia?.consulta === consultaEscenarios ? sugerencia : null
+  const escenariosFormulario = esAdmin ? escenarios : sugerenciaActual?.data || []
+  const escenarioVerificado = esAdmin || (sugerenciaActual?.horario_verificado && escenariosFormulario.some(
+    e => String(e.id_escenario) === String(form.id_escenario) && e.disponible
+  ))
+
+  useEffect(() => {
+    if (!consultaEscenarios) return
+    const peticion = new AbortController()
+    sugerirEscenariosAgenda(consultaEscenarios, peticion.signal)
+      .then(({ data }) => {
+        if (peticion.signal.aborted) return
+        const opciones = data.data.filter(e => e.disponible !== false)
+        setSugerencia({ ...data, consulta: consultaEscenarios })
+        setForm(actual => {
+          const sigueDisponible = opciones.some(e => String(e.id_escenario) === String(actual.id_escenario))
+          return sigueDisponible ? actual : { ...actual, id_escenario: opciones[0]?.id_escenario ?? '' }
+        })
+      })
+      .catch(error => {
+        if (!peticion.signal.aborted) setSugerencia({
+          consulta: consultaEscenarios,
+          error: error.response?.data?.message || 'No se pudo consultar la disponibilidad de escenarios.'
+        })
+      })
+    return () => peticion.abort()
+  }, [consultaEscenarios])
+
   const cargarFilas = async () => {
     try {
       const res = await listarCronogramas({})
@@ -79,7 +119,7 @@ export default function Cronogramas() {
           if (!activo || turno !== consultaDisciplinas.current) return
           setEstadoCatalogo({ error: error.response?.data?.message || 'No se pudo cargar el catálogo de disciplinas.' })
         })
-      const cargarEscenarios = getEscenarios()
+      const cargarEscenarios = esAdmin && getEscenarios()
         .then(({ data }) => { if (activo) setEscenarios(data.data) })
         .catch(() => { if (activo) setMensaje({ tipo: 'error', texto: 'No se pudo cargar la lista de escenarios.' }) })
       const cargarEntrenadores = esAdmin && buscarEntrenadores({})
@@ -141,10 +181,18 @@ export default function Cronogramas() {
     }
   }
 
-  const cambiar = (campo) => (e) => setForm({ ...form, [campo]: e.target.value })
+  const cambiar = campo => event => {
+    const valor = event.target.value
+    setForm(actual => ({
+      ...actual,
+      ...(!esAdmin && campo === 'id_disciplina' ? { id_escenario: '' } : {}),
+      [campo]: valor
+    }))
+  }
 
   const guardar = async (e) => {
     e.preventDefault()
+    if (!escenarioVerificado) return
     setMensaje(null)
     setGuardando(true)
     try {
@@ -271,11 +319,31 @@ export default function Cronogramas() {
 
             <label className="offer-field">
               <span>Escenario</span>
-              <select value={form.id_escenario} onChange={cambiar('id_escenario')} required>
+              <select value={form.id_escenario} onChange={cambiar('id_escenario')} disabled={!esAdmin && !escenariosFormulario.length} required>
                 <option value="">Selecciona un escenario</option>
-                {escenarios.map((s) => <option key={s.id_escenario} value={s.id_escenario}>{s.nombre}</option>)}
+                 {escenariosFormulario.map(s => (
+                  <option key={s.id_escenario} value={s.id_escenario} disabled={s.disponible === false}>
+                    {s.nombre}{s.disponible === false ? ' · No disponible' : ''}
+                  </option>
+                ))}
               </select>
             </label>
+
+            {!esAdmin && consultaEscenarios && (
+              <p className="text-sm self-end" role={sugerenciaActual?.error ? 'alert' : 'status'}>
+                {sugerenciaActual?.error || (!sugerenciaActual
+                  ? 'Consultando escenarios…'
+                  : sugerenciaActual.entrenador_ocupado
+                    ? 'Ya tienes un entrenamiento en ese horario. Elige otra hora.'
+                    : !escenariosFormulario.length
+                      ? 'Esta disciplina no tiene escenarios vinculados.'
+                      : sugerenciaActual.horario_verificado
+                        ? escenarioVerificado
+                          ? 'Escenario seleccionado según disponibilidad.'
+                          : 'Todos los escenarios vinculados están ocupados. Elige otra hora.'
+                        : 'Completa el horario y la vigencia para comprobar la disponibilidad.')}
+              </p>
+            )}
 
             {esAdmin && (
               <label className="offer-field">
@@ -322,7 +390,7 @@ export default function Cronogramas() {
           )}
 
           <div className="offer-filter-actions">
-            <button className="offer-button offer-button-primary" disabled={guardando}>
+            <button className="offer-button offer-button-primary" disabled={guardando || !escenarioVerificado}>
               {guardando ? 'Guardando…' : editandoId ? 'Guardar cambios' : 'Registrar horario'}
             </button>
             {editandoId && (
