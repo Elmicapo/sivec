@@ -66,6 +66,7 @@ export default function PruebaLatencia() {
               {Object.entries(pruebas).map(([valor, prueba]) => <option key={valor} value={valor}>{prueba.etiqueta}</option>)}
             </select>
           </label>
+          {tipo !== 'disciplinas' && <p>MySQL genera los usuarios de prueba al solicitar la medición.</p>}
           <button type="button" className="offer-button offer-button-primary" disabled={midiendo} onClick={medir}>
             {midiendo ? 'Midiendo…' : 'Medir desde este dispositivo'}
           </button>

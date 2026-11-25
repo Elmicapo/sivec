@@ -10,20 +10,30 @@ router.get('/latencia/usuarios', verificarToken, permitirRoles('ADMINISTRATIVO')
 
     try {
         const [data] = await db.query(
-            `SELECT id_usuario, nombre_completo, correo_electronico, rol, activo
-               FROM sivec_latencia.usuario_sintetico
-              ORDER BY id_usuario
-              LIMIT 10000`
+            `WITH digito AS (
+                SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+                UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            ), serie AS (
+                SELECT 1 + u.n + 10*d.n + 100*c.n + 1000*m.n AS n
+                  FROM digito u CROSS JOIN digito d CROSS JOIN digito c CROSS JOIN digito m
+            )
+            SELECT n AS id_usuario,
+                   CONCAT('Usuario de prueba ', LPAD(n, 5, '0')) AS nombre_completo,
+                   CONCAT('usuario-', LPAD(n, 5, '0'), '@example.test') AS correo_electronico,
+                   CASE MOD(n, 20)
+                     WHEN 0 THEN 'ADMINISTRATIVO' WHEN 1 THEN 'CMJ'
+                     WHEN 2 THEN 'ENTRENADOR' WHEN 3 THEN 'ENTRENADOR' ELSE 'DEPORTISTA'
+                   END AS rol,
+                   MOD(n, 10) <> 0 AS activo
+              FROM serie
+             ORDER BY n`
         );
         if (data.length !== 10000) {
             return res.status(409).json({ success: false, message: `La prueba encontró ${data.length} de los 10.000 usuarios esperados.` });
         }
         return res.json({ success: true, data });
     } catch (error) {
-        if (['ER_BAD_DB_ERROR', 'ER_NO_SUCH_TABLE', 'ER_TABLEACCESS_DENIED_ERROR', 'ER_DBACCESS_DENIED_ERROR'].includes(error.code)) {
-            return res.status(503).json({ success: false, message: 'Carga el SQL de usuarios sintéticos en sivec_latencia y verifica el permiso de lectura.' });
-        }
-        return responderErrorInterno(res, 'pruebas.latencia_usuarios', 'No se pudo consultar la muestra de usuarios.')(error);
+        return responderErrorInterno(res, 'pruebas.latencia_usuarios', 'No se pudo generar la muestra de usuarios.')(error);
     }
 });
 
