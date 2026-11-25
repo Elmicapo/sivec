@@ -1,3 +1,5 @@
+const { invalidarCatalogo } = require('./cacheCatalogo');
+
 const conexiones = new Set();
 
 function escucharCambios(_req, res) {
@@ -17,6 +19,7 @@ function escucharCambios(_req, res) {
 }
 
 function publicarCambioDisciplina() {
+    invalidarCatalogo();
     for (const res of conexiones) {
         if (!res.destroyed) res.write('event: disciplinas\ndata: actualizado\n\n');
     }

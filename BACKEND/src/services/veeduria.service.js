@@ -1,3 +1,4 @@
+const { invalidarCatalogo } = require('./cacheCatalogo');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
@@ -269,7 +270,7 @@ Consulta su estado con el código de tu comprobante: ${correo.web}/seguimiento`
         },
 
         async resolverSolicitudEscenario({ idSolicitud, estado, idCmj, observacion }) {
-            return withTransaction(async (connection) => {
+            const resultado = await withTransaction(async (connection) => {
                 await assertCmj(connection, idCmj);
                 const [solicitudes] = await connection.query(
                     `SELECT s.*, d.nombre AS disciplina
@@ -337,6 +338,8 @@ Consulta su estado con el código de tu comprobante: ${correo.web}/seguimiento`
                 });
                 return { id_solicitud_escenario: idSolicitud, estado_revision: estado, id_escenario: idEscenario };
             }, assertScenarioMigrationsApplied);
+            invalidarCatalogo();
+            return resultado;
         },
 
         async crearReporte(datos) {

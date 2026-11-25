@@ -1,3 +1,4 @@
+const { invalidarCatalogo } = require('../services/cacheCatalogo');
 const db = require('../config/db');
 const { configuracionCorreo, encolarCorreo } = require('../services/correo.service');
 const { assertSchemaObjectsAvailable, SchemaNotReadyError } = require('../utils/schemaAvailability');
@@ -90,6 +91,7 @@ function crearInscripcionesController({ database = db } = {}) {
             }
 
             const [result] = await insertarInscripcion(database, idDeportista, idDisciplina);
+            invalidarCatalogo();
 
             return res.status(201).json({
                 success: true,

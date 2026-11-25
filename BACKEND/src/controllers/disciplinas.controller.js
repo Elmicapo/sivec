@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { obtenerCatalogo } = require('../services/cacheCatalogo');
 const { publicarCambioDisciplina } = require('../services/eventosDisciplinas');
 const { responderErrorInterno, registrarError } = require('../utils/safeError');
 const { assertSchemaObjectsAvailable, SchemaNotReadyError } = require('../utils/schemaAvailability');
@@ -95,13 +96,18 @@ const consultarDisciplinas = (incluirInactivas, prueba = false) => async (req, r
     if (prueba) sql += ' LIMIT 10000';
 
     try {
-        if (!prueba) await assertSchemaObjectsAvailable(db, [
-            'disciplina',
-            'inscripcion',
-            'disciplina_escenario',
-            'escenario'
-        ]);
-        const [data] = await db.query(sql, params);
+        const cargar = async () => {
+            if (!prueba) await assertSchemaObjectsAvailable(db, [
+                'disciplina',
+                'inscripcion',
+                'disciplina_escenario',
+                'escenario'
+            ]);
+            const [filas] = await db.query(sql, params);
+            return filas;
+        };
+        const publicoSinFiltros = !incluirInactivas && !prueba && params.length === 0;
+        const data = await (publicoSinFiltros ? obtenerCatalogo(cargar) : cargar());
         if (prueba && data.length !== 10000) {
             return res.status(409).json({ success: false, message: `La prueba encontró ${data.length} de los 10.000 registros esperados.` });
         }
