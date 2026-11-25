@@ -25,6 +25,7 @@ app.use('/api', (_req, res, next) => {
 // Rutas base de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/disciplinas', disciplinasRoutes);
+app.use('/api/pruebas', require('./routes/pruebas.routes'));
 app.use('/api/escenarios', escenariosRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/entrenadores', require('./routes/entrenadores.routes'));
