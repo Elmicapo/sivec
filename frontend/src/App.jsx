@@ -6,6 +6,7 @@ import RutaProtegida from './components/RutaProtegida';
 import Escenarios from './pages/Escenarios';
 import Disciplinas from './pages/Disciplinas';
 import Reportar from './pages/Reportar';
+import PruebaLatencia from './pages/PruebaLatencia';
 import AdminDisciplinas from './pages/AdminDisciplinas';
 import SolicitudesEntrenadores from './pages/SolicitudesEntrenadores';
 import MiHistorial from './pages/MiHistorial';
@@ -92,6 +93,7 @@ function App() {
         />
 
         {/* Vistas Protegidas */}
+        <Route path="/admin/prueba-latencia" element={<RutaProtegida roles={['ADMINISTRATIVO']}><PruebaLatencia /></RutaProtegida>} />
         <Route path="/admin" element={<RutaProtegida roles={['ADMINISTRATIVO']}><AdminDisciplinas /></RutaProtegida>} />
         <Route path="/admin/solicitudes-entrenadores" element={<RutaProtegida roles={['ADMINISTRATIVO']}><SolicitudesEntrenadores /></RutaProtegida>} />
         

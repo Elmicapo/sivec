@@ -58,42 +58,58 @@ const crearHistorialDeportistaController = ({ database = db } = {}) => async (re
 const obtenerHistorialDeportista = crearHistorialDeportistaController();
 
 // Búsqueda pública: ?nombre=futbol&categoria=DEPORTIVA&ubicacion=coliseo
-const consultarDisciplinas = incluirInactivas => async (req, res) => {
+const consultarDisciplinas = (incluirInactivas, prueba = false) => async (req, res) => {
+    if (prueba && process.env.SIVEC_PRUEBA_LATENCIA !== '1') {
+        return res.status(404).json({ success: false, message: 'La prueba de latencia está deshabilitada.' });
+    }
+    const esquema = prueba ? 'sivec_latencia.' : '';
     const { nombre, categoria, ubicacion } = req.query;
     let sql = `SELECT d.id_disciplina, d.nombre, d.categoria, d.poblacion_objetivo, d.cupo_maximo,
                       ${incluirInactivas ? `d.estado, (SELECT JSON_ARRAYAGG(id_escenario)
-                          FROM disciplina_escenario WHERE id_disciplina = d.id_disciplina) AS ids_escenarios,` : ''}
-                      (SELECT COUNT(*) FROM inscripcion i
+                          FROM ${esquema}disciplina_escenario WHERE id_disciplina = d.id_disciplina) AS ids_escenarios,` : ''}
+                      (SELECT COUNT(*) FROM ${esquema}inscripcion i
                         WHERE i.id_disciplina = d.id_disciplina AND i.estado = 'ACTIVA') AS inscritos,
                       (SELECT GROUP_CONCAT(e.nombre ORDER BY e.nombre SEPARATOR ', ')
-                         FROM disciplina_escenario de
-                         JOIN escenario e ON e.id_escenario = de.id_escenario
+                         FROM ${esquema}disciplina_escenario de
+                         JOIN ${esquema}escenario e ON e.id_escenario = de.id_escenario
                         WHERE de.id_disciplina = d.id_disciplina) AS escenarios
-               FROM disciplina d
+               FROM ${esquema}disciplina d
                WHERE ${incluirInactivas ? '1=1' : "d.estado = 'ACTIVA'"}`;
     const params = [];
 
-    if (nombre)    { sql += ' AND d.nombre LIKE ?'; params.push(`%${nombre}%`); }
-    if (categoria) { sql += ' AND d.categoria = ?'; params.push(categoria); }
-    if (ubicacion) {
-        sql += ` AND EXISTS (SELECT 1 FROM disciplina_escenario de2
-                             JOIN escenario e2 ON e2.id_escenario = de2.id_escenario
+    if (prueba) {
+        sql += ' AND d.nombre LIKE ?';
+        params.push('[SIVEC-CARGA] Disciplina %');
+    }
+
+    if (!prueba && nombre)    { sql += ' AND d.nombre LIKE ?'; params.push(`%${nombre}%`); }
+    if (!prueba && categoria) { sql += ' AND d.categoria = ?'; params.push(categoria); }
+    if (!prueba && ubicacion) {
+        sql += ` AND EXISTS (SELECT 1 FROM ${esquema}disciplina_escenario de2
+                             JOIN ${esquema}escenario e2 ON e2.id_escenario = de2.id_escenario
                              WHERE de2.id_disciplina = d.id_disciplina
                                AND (e2.nombre LIKE ? OR e2.ubicacion LIKE ?))`;
         params.push(`%${ubicacion}%`, `%${ubicacion}%`);
     }
     sql += ' ORDER BY d.categoria, d.nombre';
+    if (prueba) sql += ' LIMIT 10000';
 
     try {
-        await assertSchemaObjectsAvailable(db, [
+        if (!prueba) await assertSchemaObjectsAvailable(db, [
             'disciplina',
             'inscripcion',
             'disciplina_escenario',
             'escenario'
         ]);
         const [data] = await db.query(sql, params);
+        if (prueba && data.length !== 10000) {
+            return res.status(409).json({ success: false, message: `La prueba encontró ${data.length} de los 10.000 registros esperados.` });
+        }
         res.json({ success: true, data });
     } catch (error) {
+        if (prueba && ['ER_BAD_DB_ERROR', 'ER_NO_SUCH_TABLE', 'ER_TABLEACCESS_DENIED_ERROR', 'ER_DBACCESS_DENIED_ERROR'].includes(error.code)) {
+            return res.status(503).json({ success: false, message: 'Verifica que el esquema sivec_latencia exista y que SIVEC tenga acceso de lectura.' });
+        }
         if (responderEsquemaNoDisponible(res, error, 'La búsqueda de disciplinas aún no está habilitada.')) return;
         return responderErrorInterno(res, 'disciplinas.buscar', 'Error en la búsqueda')(error);
     }
@@ -102,6 +118,7 @@ const consultarDisciplinas = incluirInactivas => async (req, res) => {
 
 const buscarDisciplinas = consultarDisciplinas(false);
 const administrarDisciplinas = consultarDisciplinas(true);
+const probarLatenciaDisciplinas = consultarDisciplinas(false, true);
 
 const esCupoValido = valor =>
     (typeof valor === 'number' || typeof valor === 'string')
@@ -326,6 +343,7 @@ module.exports = {
     obtenerHistorialDeportista,
     buscarDisciplinas,
     administrarDisciplinas,
+    probarLatenciaDisciplinas,
     reactivarDisciplina,
     crearHistorialDeportistaController,
     crearDisciplina,

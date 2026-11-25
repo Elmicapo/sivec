@@ -7,6 +7,7 @@ const {
     obtenerHistorialDeportista,
     buscarDisciplinas,
     administrarDisciplinas,
+    probarLatenciaDisciplinas,
     reactivarDisciplina,
     crearDisciplina,
     actualizarDisciplina,
@@ -29,6 +30,7 @@ router.get('/', buscarDisciplinas);
 router.get('/mi-historial', verificarToken, permitirRoles('DEPORTISTA'), obtenerHistorialDeportista);
 
 // Solo Administrativo
+router.get('/prueba-latencia', verificarToken, permitirRoles('ADMINISTRATIVO'), probarLatenciaDisciplinas);
 router.get('/administracion', verificarToken, permitirRoles('ADMINISTRATIVO'), administrarDisciplinas);
 router.patch('/:id/reactivar', verificarToken, permitirRoles('ADMINISTRATIVO'), reactivarDisciplina);
 router.post('/', verificarToken, permitirRoles('ADMINISTRATIVO'), crearDisciplina);
