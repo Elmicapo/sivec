@@ -7,7 +7,7 @@ const pruebas = {
 }
 
 export default function PruebaLatencia() {
-  const [tipo, setTipo] = useState('disciplinas')
+  const [tipo, setTipo] = useState('usuarios')
   const [midiendo, setMidiendo] = useState(false)
   const [resultados, setResultados] = useState([])
   const [error, setError] = useState('')
