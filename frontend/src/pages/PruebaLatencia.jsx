@@ -7,35 +7,42 @@ const pruebas = {
 }
 
 export default function PruebaLatencia() {
-  const [tipo, setTipo] = useState('usuarios')
+  const [tipo, setTipo] = useState('ambas')
   const [midiendo, setMidiendo] = useState(false)
-  const [resultados, setResultados] = useState([])
-  const [error, setError] = useState('')
+  const [resultados, setResultados] = useState({})
+  const tipos = tipo === 'ambas' ? ['usuarios', 'disciplinas'] : [tipo]
 
   const medir = async () => {
     setMidiendo(true)
-    setResultados([])
-    setError('')
+    setResultados({})
     try {
-      for (let intento = 0; intento < 3; intento += 1) {
-        const inicio = performance.now()
-        const respuesta = await api.get(pruebas[tipo].ruta, {
-          transformResponse: [texto => texto],
-          timeout: 15_000
-        })
-        const ms = Math.round(performance.now() - inicio)
-        const { data } = JSON.parse(respuesta.data)
-        if (data?.length !== 10_000) throw new Error(`La respuesta debe contener 10.000 ${tipo}.`)
-        setResultados(actuales => [...actuales, ms])
+      for (const conjunto of tipos) {
+        const tiempos = []
+        try {
+          for (let intento = 0; intento < 3; intento += 1) {
+            const inicio = performance.now()
+            const respuesta = await api.get(pruebas[conjunto].ruta, {
+              transformResponse: [texto => texto],
+              timeout: 15_000
+            })
+            const ms = Math.round(performance.now() - inicio)
+            const { data } = JSON.parse(respuesta.data)
+            if (!Array.isArray(data) || data.length !== 10_000) {
+              throw new Error(`La respuesta debe contener 10.000 ${conjunto}.`)
+            }
+            tiempos.push(ms)
+            setResultados(actuales => ({ ...actuales, [conjunto]: { tiempos: [...tiempos] } }))
+          }
+        } catch (fallo) {
+          let error = fallo.message
+          try {
+            if (fallo.response?.data) error = JSON.parse(fallo.response.data).message || error
+          } catch {
+            error = 'El servidor no devolvió datos de la prueba.'
+          }
+          setResultados(actuales => ({ ...actuales, [conjunto]: { tiempos, error } }))
+        }
       }
-    } catch (fallo) {
-      let mensaje = fallo.message
-      try {
-        if (fallo.response?.data) mensaje = JSON.parse(fallo.response.data).message || mensaje
-      } catch {
-        mensaje = 'El servidor no devolvió datos de la prueba.'
-      }
-      setError(mensaje)
     } finally {
       setMidiendo(false)
     }
@@ -53,20 +60,30 @@ export default function PruebaLatencia() {
             Datos de prueba
             <select value={tipo} disabled={midiendo} onChange={event => {
               setTipo(event.target.value)
-              setResultados([])
-              setError('')
+              setResultados({})
             }}>
+              <option value="ambas">Usuarios y disciplinas</option>
               {Object.entries(pruebas).map(([valor, prueba]) => <option key={valor} value={valor}>{prueba.etiqueta}</option>)}
             </select>
           </label>
           <button type="button" className="offer-button offer-button-primary" disabled={midiendo} onClick={medir}>
             {midiendo ? 'Midiendo…' : 'Medir desde este dispositivo'}
           </button>
-          <ol className="list-decimal pl-6">
-            {resultados.map((ms, indice) => <li key={indice}>10.000 {tipo} en {ms} ms</li>)}
-          </ol>
-          {resultados.length === 3 && <p role="status">Mediana: {[...resultados].sort((a, b) => a - b)[1]} ms.</p>}
-          {error && <p role="alert">{error}</p>}
+          {tipos.map(conjunto => {
+            const resultado = resultados[conjunto]
+            if (!resultado) return null
+            const { tiempos, error } = resultado
+            return (
+              <section key={conjunto} className="space-y-2">
+                <h2 className="font-semibold">{pruebas[conjunto].etiqueta}</h2>
+                <ol className="list-decimal pl-6">
+                  {tiempos.map((ms, indice) => <li key={indice}>10.000 {conjunto} en {ms} ms</li>)}
+                </ol>
+                {tiempos.length === 3 && <p role="status">Mediana de {conjunto}: {[...tiempos].sort((a, b) => a - b)[1]} ms.</p>}
+                {error && <p role="alert">{error}</p>}
+              </section>
+            )
+          })}
         </section>
       </div>
     </main>
